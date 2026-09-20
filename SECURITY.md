@@ -133,7 +133,7 @@ initializeAppCheck(app, { provider: new ReCaptchaV3Provider("<site key>"), isTok
 - 訊息的 `@標記` 用 DOM 節點組出來，不是把字串塞進 HTML。
 - 圖片來源白名單：只接受 `data:image/{png,jpeg,webp,gif};base64,...` 與 `https://...`，所以 `javascript:`、`data:text/html`、帶引號的注入字串都會被丟掉。
 - 點圖開新視窗用 `window.open(safeSrc, "_blank", "noopener,noreferrer")`。
-- 浮水印的 SVG 文字有做 XML 跳脫。
+- 浮
 
 驗證方式（`tools/selfcheck.mjs` 會自動跑）：
 
@@ -160,9 +160,13 @@ node tools/selfcheck.mjs
 ### 移除的虛假安全感
 
 - 「即時加密對話」→ 改成事實描述；頁面上明白寫出「沒有端到端加密、內容以明文儲存」。
-- 「防截圖模式」→ 改名為「防誤傳模式」，並在 UI 說明「只是加水印與關閉右鍵，無法阻止截圖」。
+- 「防截圖模式」→ 改名為「加強限制」，不再宣稱任何防截圖能力。
 - 原本按下 PrintScreen 會彈出「系統已記錄您的截圖嘗試行為」——**這是假的**，沒有任何記錄行為。現在只提示「無法阻止截圖」。
 - 房間加入提示：「房間沒有密碼，只有房號」。
+
+### 加強限制
+
+房主的「加強限制」開關會關閉右鍵選單、文字選取與複製事件。這只攔隨手外流：devtools、reader mode、OCR 都繞得過，有心人會直接改抓資料庫，所以它不改變「訊息是明文、而且可被大範圍讀取」這個事實。
 
 ### 本機儲存
 

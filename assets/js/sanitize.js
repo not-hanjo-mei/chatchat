@@ -95,7 +95,7 @@ export function safeEmoji(value) {
     return trimmed.length > 0 && trimmed.length <= 8 && EMOJI_PATTERN.test(trimmed) ? trimmed : "";
 }
 
-/** 貼進 SVG <text> 前把 XML 特殊字元換掉（浮水印用） */
+/** 貼進 SVG <text> 前把 XML 特殊字元換掉（頭像的底色圖用） */
 export function escapeXml(value) {
     return String(value).replace(/[&<>"']/g, (char) => {
         switch (char) {

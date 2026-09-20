@@ -74,6 +74,10 @@ npm test           # = selfcheck + e2e
 - **`tools/e2e.mjs`（22 項）**：在 jsdom 裡跑真正的 `app.js`（Firebase 換成 `tools/fb-stub.js`），走一遍「建立房間 → 按鈕送出 → Enter 送出 → 離開 → 重新整理自動回房 → 心情宇宙點星點 → 點心情看清單」。
   這個測試是必要的：靜態檢查抓不到「呼叫了不存在的 API」——`chatLimiter.allow()` 這個打字錯誤就是它抓到的（詳見 `SECURITY.md` 的變更記錄）。
 
+## 加強限制
+
+房主可以在側邊欄開啟「加強限制」：關閉右鍵選單、文字選取與複製事件。它只攔隨手外流，devtools、reader mode、OCR 都繞得過，而且有心人會直接改抓資料庫。
+
 ## 心情宇宙怎麼讀
 
 星點只有 12px，在手機上很難精準點到，所以有三條路：

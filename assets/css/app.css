@@ -184,24 +184,11 @@ img {
         linear-gradient(90deg, rgba(242, 240, 230, 0.04) 1px, transparent 1px);
 }
 
-/* ================= 提醒模式（水印） ================= */
-/* 只是降低誤傳機率的視覺手段，不是防護，無法阻止截圖。 */
+/* ================= 加強限制 =================
+   房主可開：關右鍵、關選取、攔複製。 */
 .secure-mode {
     user-select: none;
     -webkit-user-select: none;
-}
-
-.watermark {
-    pointer-events: none;
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: none;
-    background-repeat: repeat;
-}
-
-.secure-mode .watermark {
-    display: block;
 }
 
 /* ================= 版面骨架 ================= */

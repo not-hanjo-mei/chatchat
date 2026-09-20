@@ -110,7 +110,7 @@ check("只接受真表情符號，字串與數字被拒", () => {
     assert.equal(safeEmoji(undefined), "");
 });
 
-/* ---------- 浮水印 ---------- */
+/* ---------- SVG 跳脫 ---------- */
 check("SVG 文字有跳脫，無法提早關閉 <text> 標籤", () => {
     const escaped = escapeXml('</text><script>alert(1)</script>');
     assert.ok(!escaped.includes("<"));

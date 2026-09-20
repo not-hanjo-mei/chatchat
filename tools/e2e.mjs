@@ -148,6 +148,10 @@ const remembered = JSON.parse(window.localStorage.getItem("chatchat-last-input")
 check("進房後記住房號與暱稱", remembered.roomId === "TESTROOM" && remembered.nickname === "tester",
     JSON.stringify(remembered));
 
+const copyEvent = new window.Event("copy", { bubbles: true, cancelable: true });
+document.dispatchEvent(copyEvent);
+check("沒開加強限制時可以複製（不影響無障礙與備份）", copyEvent.defaultPrevented === false);
+
 /* ---------- 送出訊息：按鈕 ---------- */
 $("message-input").value = "hello via button";
 click($("btn-send"));
@@ -218,6 +222,25 @@ check("新開一次會填回上次的房號與暱稱",
 check("只有記住輸入不會自動進房", prefillDoc.body.dataset.screen === "landing-screen",
     `screen=${prefillDoc.body.dataset.screen}`);
 check("暱稱填回後頭像也跟著算", prefillDoc.getElementById("avatar-preview").src.startsWith("data:image/"));
+
+/* ---------- 加強限制模式：攔複製 ---------- */
+const lockedAlerts = [];
+const lockedWindow = await boot({
+    tag: "locked",
+    session: { roomId: "TESTROOM", nickname: "tester" },
+    alerts: lockedAlerts,
+});
+await flush(12);
+const lockedDoc = lockedWindow.document;
+{
+    const { ref: lockRef, set: lockSet } = await import(join(repo, "tools/fb-stub.js"));
+    await lockSet(lockRef(null, "rooms/TESTROOM/settings/secureMode"), true);
+}
+await flush(12);
+check("房主開啟後進入加強限制模式", lockedDoc.body.classList.contains("secure-mode"));
+const lockedCopy = new lockedWindow.Event("copy", { bubbles: true, cancelable: true });
+lockedDoc.dispatchEvent(lockedCopy);
+check("加強限制模式下攔截複製", lockedCopy.defaultPrevented === true);
 
 /* ---------- 頭像記住 / 清除 ---------- */
 const AVATAR_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";

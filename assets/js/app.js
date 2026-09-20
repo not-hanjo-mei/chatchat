@@ -324,13 +324,6 @@ for (const button of document.querySelectorAll("[data-goto]")) {
     button.addEventListener("click", () => switchScreen(button.dataset.goto));
 }
 
-/* ================= 浮水印（提醒模式用） ================= */
-function renderWatermark() {
-    const stamp = `${state.nickname || "匿名"} ${formatTime(Date.now())}`;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="200"><text x="50%" y="50%" font-size="14" fill="rgba(15,23,42,0.14)" font-family="monospace" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(-25 180 100)">${escapeXml(stamp)}</text></svg>`;
-    $("watermark-layer").style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
-
 /* ================= 圖片處理 ================= */
 function readFileAsDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -523,7 +516,10 @@ el.btnClearAvatar.addEventListener("click", () => {
 });
 
 /* 欄位失焦就記住內容，這樣沒進房也留著下次用 */
-el.nicknameInput.addEventListener("change", rememberLastInput);
+el.nicknameInput.addEventListener("change", () => {
+    rememberLastInput();
+    renderWatermark();
+});
 el.roomIdInput.addEventListener("change", rememberLastInput);
 
 /* 暱稱一改就換一張對應的頭像，讓使用者知道名字決定臉 */
@@ -590,7 +586,6 @@ async function joinRoom(roomId, isCreate) {
 
     saveSession();
     rememberLastInput();
-    renderWatermark();
     el.displayRoomId.textContent = roomId;
     switchScreen("chat-screen");
     setupChatListeners();
@@ -637,7 +632,6 @@ function setupChatListeners() {
             const isSecure = snapshot.val() === true;
             el.body.classList.toggle("secure-mode", isSecure);
             el.secureToggle.checked = isSecure;
-            if (isSecure) renderWatermark();
         }),
     );
 
@@ -1131,11 +1125,15 @@ document.addEventListener("contextmenu", (event) => {
     if (el.body.classList.contains("secure-mode")) event.preventDefault();
 });
 
-document.addEventListener("keyup", (event) => {
-    if (!el.body.classList.contains("secure-mode") || event.key !== "PrintScreen") return;
-    announce("提醒：防誤傳模式無法真正阻止截圖。");
-    warn("提醒", "偵測到截圖動作，但這個模式無法阻止截圖。");
-});
+/* 加強限制模式才攔複製：平常讓大家能複製自己的內容（無障礙與備份需求），
+   真的要防的是「隨手外流」，而這攔不住有心人。 */
+for (const type of ["copy", "cut"]) {
+    document.addEventListener(type, (event) => {
+        if (!el.body.classList.contains("secure-mode")) return;
+        event.preventDefault();
+        announce("加強限制模式已關閉複製。");
+    });
+}
 
 document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
@@ -1640,7 +1638,6 @@ autoResizeAll();
 prefillInputs();
 state.avatar = readStoredAvatar();
 syncAvatarControls();
-renderWatermark();
 applyAvatar(el.avatarPreview, el.nicknameInput.value, state.avatar, AVATAR_SIDE);
 applyAvatar(el.heroAvatar, "ChatChat", "", 192);
 void restoreSession();
