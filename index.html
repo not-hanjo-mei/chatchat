@@ -3,112 +3,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Let us start to chat ♪(๑ᴖ◡ᴖ๑)♪</title>
+    <title>ChatChat & 心情宇宙</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* 隱藏捲軸 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* 機密模式樣式 - 禁用選取 */
-        .secure-mode {
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        
-        /* 浮水印層 */
-        .watermark {
-            pointer-events: none;
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            z-index: 9999;
-            display: none;
-            /* 確保浮水印圖案重複鋪滿 */
-            background-repeat: repeat; 
-        }
-        
+        /* 機密模式與浮水印 */
+        .secure-mode { user-select: none; -webkit-user-select: none; }
+        .watermark { pointer-events: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: none; background-repeat: repeat; }
         .secure-mode .watermark { display: block; }
+
+        /* 心情宇宙專屬特效 */
+        .universe-bg {
+            background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%);
+            background-image: radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+                              radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+                              radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
+                              radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+        }
+        
+        /* 繁星閃爍動畫 */
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .star-glow { animation: twinkle 3s infinite ease-in-out; }
+        
+        /* 橘色回覆光點的環繞排版 */
+        .reply-orbit {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
     </style>
 </head>
-<body class="bg-gray-100 h-screen flex items-center justify-center font-sans text-gray-800 bg-cover bg-center" id="main-body">
+<body class="bg-gray-100 h-screen font-sans text-gray-800 bg-cover bg-center overflow-hidden" id="main-body">
 
-    <!-- 動態浮水印層 -->
+    <!-- 浮水印層 -->
     <div class="watermark" id="watermark-layer"></div>
 
-    <!-- 登入/建立房間畫面 -->
-    <div id="setup-screen" class="bg-white/95 backdrop-blur p-8 rounded-xl shadow-lg w-full max-w-md mx-4 relative z-10">
-        <h1 class="text-2xl font-bold mb-6 text-center text-indigo-600">加入或建立聊天室</h1>
-        <div class="space-y-4">
-            <div><label class="block text-sm font-medium mb-1">房間號碼</label><input type="text" id="room-id" placeholder="輸入房間號碼" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"></div>
-            <div><label class="block text-sm font-medium mb-1">暱稱 (最多10字)</label><input type="text" id="nickname" maxlength="10" placeholder="你的暱稱" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"></div>
-            <div><label class="block text-sm font-medium mb-1">自訂頭像 (可選)</label><input type="file" id="avatar-input" accept="image/*" class="w-full text-sm text-gray-500 border rounded-lg p-1">
-                <img id="avatar-preview" class="mt-2 w-16 h-16 rounded-full object-cover hidden border" /></div>
-            <div class="flex space-x-3 pt-4">
-                <button id="btn-create" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition">建立房間</button>
-                <button id="btn-join" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition">加入房間</button>
+    <!-- ==================== 1. 入口大廳 ==================== -->
+    <div id="landing-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white z-50">
+        <h1 class="text-5xl font-bold mb-4 tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">歡迎來到你的專屬空間</h1>
+        <p class="text-gray-400 mb-12">選擇你要前往的地方</p>
+        <div class="flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-8">
+            <button onclick="switchScreen('setup-screen')" class="group relative px-8 py-12 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/10 backdrop-blur transition overflow-hidden">
+                <div class="text-4xl mb-4">💬</div>
+                <h2 class="text-2xl font-bold mb-2 group-hover:text-indigo-400 transition">ChatChat 聊天室</h2>
+                <p class="text-sm text-gray-400">建立專屬房間，即時加密對話</p>
+            </button>
+            <button onclick="enterUniverse()" class="group relative px-8 py-12 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/10 backdrop-blur transition overflow-hidden">
+                <div class="text-4xl mb-4">🌌</div>
+                <h2 class="text-2xl font-bold mb-2 group-hover:text-pink-400 transition">前往心情宇宙</h2>
+                <p class="text-sm text-gray-400">化作星點，分享與傾聽今日心事</p>
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 2. 聊天室：建立/加入房間 ==================== -->
+    <div id="setup-screen" class="hidden absolute inset-0 flex items-center justify-center bg-gray-900/50 backdrop-blur z-40 p-4">
+        <div class="bg-white/95 p-8 rounded-xl shadow-lg w-full max-w-md relative">
+            <button onclick="switchScreen('landing-screen')" class="absolute top-4 left-4 text-gray-400 hover:text-gray-700">← 返回</button>
+            <h1 class="text-2xl font-bold mb-6 mt-4 text-center text-indigo-600">ChatChat</h1>
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium mb-1">房間號碼</label><input type="text" id="room-id" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"></div>
+                <div><label class="block text-sm font-medium mb-1">暱稱 (最多10字)</label><input type="text" id="nickname" maxlength="10" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"></div>
+                <div><label class="block text-sm font-medium mb-1">自訂頭像 (可選)</label><input type="file" id="avatar-input" accept="image/*" class="w-full text-sm text-gray-500 border rounded-lg p-1">
+                    <img id="avatar-preview" class="mt-2 w-16 h-16 rounded-full object-cover hidden border" /></div>
+                <div class="flex space-x-3 pt-4">
+                    <button id="btn-create" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition">建立</button>
+                    <button id="btn-join" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition">加入</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 聊天室畫面 -->
-    <div id="chat-screen" class="hidden w-full h-full max-w-6xl bg-white/95 backdrop-blur shadow-xl flex flex-col md:flex-row md:h-[90vh] md:rounded-2xl overflow-hidden relative">
-        
-        <!-- 側邊欄 -->
-        <div class="w-full md:w-64 bg-gray-50/90 border-r flex flex-col relative z-20">
-            <div class="p-4 border-b bg-indigo-50 flex flex-col space-y-2">
-                <h2 class="font-bold text-indigo-800">房間: <span id="display-room-id"></span></h2>
-                <div class="flex items-center space-x-2 text-sm">
-                    <button class="bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" onclick="document.getElementById('bg-input').click()">🖼️ 換背景</button>
-                    <input type="file" id="bg-input" accept="image/*" class="hidden">
+    <!-- ==================== 3. 聊天室：對話畫面 ==================== -->
+    <div id="chat-screen" class="hidden w-full h-full max-w-6xl mx-auto md:py-6 relative z-30">
+        <div class="bg-white/95 backdrop-blur shadow-xl flex flex-col md:flex-row h-full md:rounded-2xl overflow-hidden relative">
+            <!-- 側邊欄 -->
+            <div class="w-full md:w-64 bg-gray-50/90 border-r flex flex-col relative z-20">
+                <div class="p-4 border-b bg-indigo-50 flex flex-col space-y-2">
+                    <h2 class="font-bold text-indigo-800">房間: <span id="display-room-id"></span></h2>
+                    <div class="flex items-center space-x-2 text-sm">
+                        <button class="bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" onclick="document.getElementById('bg-input').click()">🖼️ 背景</button>
+                        <input type="file" id="bg-input" accept="image/*" class="hidden">
+                    </div>
+                    <div id="host-controls" class="hidden mt-2 pt-2 border-t border-indigo-200">
+                        <label class="flex items-center space-x-2 text-sm font-semibold text-red-600 cursor-pointer">
+                            <input type="checkbox" id="secure-toggle" class="form-checkbox text-red-600">
+                            <span>🛡️ 防截圖模式</span>
+                        </label>
+                    </div>
                 </div>
-                <!-- 房主專屬：機密模式開關 -->
-                <div id="host-controls" class="hidden mt-2 pt-2 border-t border-indigo-200">
-                    <label class="flex items-center space-x-2 text-sm font-semibold text-red-600 cursor-pointer">
-                        <input type="checkbox" id="secure-toggle" class="form-checkbox text-red-600">
-                        <span>🛡️ 開啟防截圖機密模式</span>
-                    </label>
+                <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar" id="members-list"></div>
+                <div class="p-4 border-t space-y-2">
+                    <button id="btn-leave" class="w-full bg-gray-200 py-2 rounded-lg hover:bg-gray-300">退出</button>
+                    <button id="btn-disband" class="hidden w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">解散房間</button>
                 </div>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar" id="members-list"></div>
-            <div class="p-4 border-t space-y-2">
-                <button id="btn-leave" class="w-full bg-gray-200 py-2 rounded-lg hover:bg-gray-300">退出房間</button>
-                <button id="btn-disband" class="hidden w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">解散房間</button>
-            </div>
-        </div>
 
-        <!-- 聊天主區域 -->
-        <div class="flex-1 flex flex-col h-[60vh] md:h-full relative z-20">
-            <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-gray-100/50" id="chat-messages"></div>
+            <!-- 聊天主區域 -->
+            <div class="flex-1 flex flex-col h-full relative z-20">
+                <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-gray-100/50" id="chat-messages"></div>
+                <div id="reply-preview" class="hidden bg-indigo-50 p-2 border-t text-sm flex justify-between items-center text-indigo-800">
+                    <span>回覆 <strong id="reply-to-name"></strong></span>
+                    <button onclick="window.cancelReply()" class="text-gray-500 hover:text-red-500 font-bold">✕</button>
+                </div>
+                <div class="p-4 bg-white/90 border-t flex items-center space-x-2">
+                    <button onclick="document.getElementById('chat-img-input').click()" class="p-2 text-gray-500 bg-gray-100 rounded-full">📷</button>
+                    <input type="file" id="chat-img-input" accept="image/*" class="hidden">
+                    <input type="text" id="message-input" placeholder="輸入訊息... (@ 標記人)" class="flex-1 border rounded-full px-4 py-2">
+                    <button id="btn-send" class="bg-indigo-600 text-white px-6 py-2 rounded-full">發送</button>
+                </div>
+            </div>
             
-            <!-- 回覆預覽區塊 -->
-            <div id="reply-preview" class="hidden bg-indigo-50 p-2 border-t text-sm flex justify-between items-center text-indigo-800">
-                <span>回覆 <strong id="reply-to-name"></strong>: <span id="reply-to-text" class="truncate max-w-[200px] inline-block align-bottom"></span></span>
-                <button onclick="window.cancelReply()" class="text-gray-500 hover:text-red-500 font-bold">✕</button>
+            <!-- 星星選單 -->
+            <div id="star-menu" class="hidden absolute bg-white shadow-xl border rounded-lg p-2 flex space-x-2 z-50">
+                <button class="hover:bg-gray-100 p-1" onclick="window.addReaction('👍')">👍</button>
+                <button class="hover:bg-gray-100 p-1" onclick="window.addReaction('❤️')">❤️</button>
+                <div class="w-px bg-gray-300 mx-1"></div>
+                <button class="hover:bg-gray-100 p-1 px-2 text-sm text-indigo-600" onclick="window.triggerReply()">回覆</button>
             </div>
-
-            <!-- 輸入區 -->
-            <div class="p-4 bg-white/90 border-t flex items-center space-x-2">
-                <button onclick="document.getElementById('chat-img-input').click()" class="p-2 text-gray-500 hover:text-indigo-600 bg-gray-100 rounded-full">📷</button>
-                <input type="file" id="chat-img-input" accept="image/*" class="hidden">
-                <input type="text" id="message-input" placeholder="輸入訊息... (輸入 @ 可標記人)" class="flex-1 border rounded-full px-4 py-2 focus:ring-2 focus:ring-indigo-500">
-                <button id="btn-send" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700">發送</button>
-            </div>
-        </div>
-
-        <!-- 星星選單 (隱藏彈出) -->
-        <div id="star-menu" class="hidden absolute bg-white shadow-xl border rounded-lg p-2 flex space-x-2 z-50">
-            <button class="hover:bg-gray-100 p-1 rounded text-xl" onclick="window.addReaction('👍')">👍</button>
-            <button class="hover:bg-gray-100 p-1 rounded text-xl" onclick="window.addReaction('❤️')">❤️</button>
-            <button class="hover:bg-gray-100 p-1 rounded text-xl" onclick="window.addReaction('😂')">😂</button>
-            <button class="hover:bg-gray-100 p-1 rounded text-xl" onclick="window.addReaction('😮')">😮</button>
-            <div class="w-px bg-gray-300 mx-1"></div>
-            <button class="hover:bg-gray-100 p-1 px-3 rounded text-sm font-bold text-indigo-600" onclick="window.triggerReply()">回覆</button>
         </div>
     </div>
+
+    <!-- ==================== 4. 心情宇宙畫面 ==================== -->
+    <div id="universe-screen" class="hidden absolute inset-0 universe-bg z-30">
+        <button onclick="switchScreen('landing-screen')" class="absolute top-6 left-6 text-white/50 hover:text-white z-50 px-4 py-2 border border-white/30 rounded-full backdrop-blur">← 離開宇宙</button>
+        
+        <!-- 說明面板 -->
+        <div class="absolute bottom-6 left-6 text-white/70 text-xs md:text-sm bg-black/40 p-4 rounded-xl backdrop-blur z-40 pointer-events-none">
+            <h3 class="font-bold text-white mb-2">宇宙導覽</h3>
+            <ul class="space-y-1">
+                <li><span class="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-2"></span>開心 (黃色) - 點擊星球分享 +</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-gray-400 mr-2"></span>無聊 (灰色)</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span>憤怒 (紅色)</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-pink-400 mr-2"></span>心動 (粉色)</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-blue-400 mr-2"></span>難過 (藍色)</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-white mr-2"></span>其他 (白色)</li>
+                <li class="pt-2 text-orange-400">※ 橘色微光代表其他旅人的回覆</li>
+            </ul>
+        </div>
+
+        <!-- 星球容器 -->
+        <div id="planets-container" class="relative w-full h-full">
+            <!-- 星球會由 JS 動態生成 -->
+        </div>
+        
+        <!-- 光點(心事)容器 -->
+        <div id="stars-container" class="absolute inset-0">
+            <!-- 心事與回覆動態生成於此 -->
+        </div>
+    </div>
+
+    <!-- 宇宙：發文 Modal -->
+    <div id="universe-post-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 text-white p-6 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="u-post-title" class="text-xl font-bold">留下你的心事...</h2>
+                <button onclick="closeUniverseModals()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div class="space-y-4">
+                <textarea id="u-post-text" rows="4" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" placeholder="今天發生了什麼事呢？"></textarea>
+                <div class="flex space-x-2">
+                    <input type="text" id="u-post-nickname" placeholder="暱稱" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-sm">
+                </div>
+                <button id="btn-u-submit" class="w-full bg-white text-black font-bold py-2 rounded-lg hover:bg-gray-200 transition shadow-[0_0_15px_rgba(255,255,255,0.5)]">化為星點發送</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 宇宙：閱讀/回覆 Modal -->
+    <div id="universe-read-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 text-white rounded-2xl shadow-2xl w-full max-w-md border border-white/10 flex flex-col h-[70vh]">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50 rounded-t-2xl">
+                <div class="flex items-center space-x-3">
+                    <img id="u-read-avatar" class="w-10 h-10 rounded-full border border-gray-600 bg-gray-700">
+                    <div>
+                        <div id="u-read-name" class="font-bold text-sm"></div>
+                        <div id="u-read-time" class="text-xs text-gray-400"></div>
+                    </div>
+                </div>
+                <button onclick="closeUniverseModals()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+                <!-- 主文 -->
+                <p id="u-read-text" class="text-lg leading-relaxed"></p>
+                
+                <!-- 分隔線 -->
+                <div class="flex items-center text-xs text-gray-500">
+                    <div class="flex-1 border-t border-gray-700"></div>
+                    <span class="px-2">宇宙迴響</span>
+                    <div class="flex-1 border-t border-gray-700"></div>
+                </div>
+
+                <!-- 回覆列表 -->
+                <div id="u-replies-list" class="space-y-4"></div>
+            </div>
+
+            <!-- 回覆輸入區 -->
+            <div class="p-4 border-t border-gray-700 bg-gray-900/50 rounded-b-2xl flex space-x-2">
+                <input type="text" id="u-reply-input" placeholder="給予回應..." class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-400">
+                <button id="btn-u-reply" class="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-orange-600">回覆</button>
+            </div>
+        </div>
+    </div>
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue, onChildAdded, onChildChanged, onDisconnect, remove, get, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
+        // ================= Firebase 設定 =================
         const firebaseConfig = {
             apiKey: "AIzaSyAR8ij9OjrePtf6heoMghCcp7JVu_L5z6U",
             authDomain: "chat-f46da.firebaseapp.com",
@@ -118,16 +231,32 @@
             messagingSenderId: "148711107012",
             appId: "1:148711107012:web:676fdcea4bcb62f1225c91"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // ================= 全域變數 =================
         let myUserId = 'user_' + Math.random().toString(36).substr(2, 9);
         let myNickname = '';
         let myAvatarBase64 = 'https://api.dicebear.com/7.x/bottts/svg?seed=' + myUserId;
+        
+        // 畫面切換邏輯
+        window.switchScreen = (screenId) => {
+            ['landing-screen', 'setup-screen', 'chat-screen', 'universe-screen'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+            
+            // 離開機密聊天室時，關閉浮水印與右鍵限制
+            if(screenId !== 'chat-screen') {
+                document.body.classList.remove('secure-mode');
+            }
+        };
+
+        // ====================================================
+        //                 PART A: 聊天室邏輯 
+        // ====================================================
         let currentRoomId = null;
         let isHost = false;
-        
         let replyingTo = null;
         let currentSelectedMsgId = null;
 
@@ -135,29 +264,14 @@
         const messageInput = document.getElementById('message-input');
         const starMenu = document.getElementById('star-menu');
 
-        // ====== 修正：完美動態生成專屬浮水印 ======
         function setDynamicWatermark() {
-            // 取得時間
             const dateStr = new Date().toLocaleString('zh-TW', { hour12: false });
-            // 取 ID 的前六碼，避免字串過長
             const shortId = myUserId.split('_')[1]; 
             const watermarkText = `機密防護 - ${myNickname} (${shortId})${dateStr}`;
-            
-            // 建立完整的 SVG，套用旋轉與透明度
-            const svgStr = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="350" height="200">
-                    <text x="50%" y="50%" font-size="16" fill="rgba(0,0,0,0.12)" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(-25 175 100)">
-                        ${watermarkText}
-                    </text>
-                </svg>
-            `;
-            
-            // 🔥 關鍵修正：將「整串 SVG」進行完整的 URL 編碼，瀏覽器才會視為合法的圖片資源
-            const encodedSvg = encodeURIComponent(svgStr);
-            document.getElementById('watermark-layer').style.backgroundImage = `url("data:image/svg+xml,${encodedSvg}")`;
+            const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="350" height="200"><text x="50%" y="50%" font-size="16" fill="rgba(0,0,0,0.12)" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(-25 175 100)">${watermarkText}</text></svg>`;
+            document.getElementById('watermark-layer').style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svgStr)}")`;
         }
 
-        // ====== 1. 圖片處理 (壓縮與轉 Base64) ======
         function processImage(file, callback) {
             if (!file) return;
             if (file.size > 2 * 1024 * 1024) return alert('圖片請小於 2MB'); 
@@ -167,21 +281,16 @@
         }
 
         document.getElementById('avatar-input').addEventListener('change', (e) => {
-            processImage(e.target.files[0], (base64) => {
-                myAvatarBase64 = base64;
-                document.getElementById('avatar-preview').src = base64;
+            processImage(e.target.files[0], (b64) => {
+                myAvatarBase64 = b64;
+                document.getElementById('avatar-preview').src = b64;
                 document.getElementById('avatar-preview').classList.remove('hidden');
             });
         });
-
-        // ====== 2. 更改個人背景 ======
         document.getElementById('bg-input').addEventListener('change', (e) => {
-            processImage(e.target.files[0], (base64) => {
-                document.getElementById('main-body').style.backgroundImage = `url(${base64})`;
-            });
+            processImage(e.target.files[0], (b64) => { document.getElementById('main-body').style.backgroundImage = `url(${b64})`; });
         });
 
-        // ====== 3. 進入房間邏輯 ======
         document.getElementById('btn-create').addEventListener('click', () => initRoom(true));
         document.getElementById('btn-join').addEventListener('click', () => initRoom(false));
 
@@ -201,18 +310,13 @@
             await set(myRef, { name: myNickname, avatar: myAvatarBase64, joinedAt: Date.now() });
             onDisconnect(myRef).remove();
 
-            // 🔥 呼叫浮水印生成函數
             setDynamicWatermark();
-
-            document.getElementById('setup-screen').classList.add('hidden');
-            document.getElementById('chat-screen').classList.remove('hidden');
+            switchScreen('chat-screen');
             document.getElementById('display-room-id').innerText = roomId;
-
-            setupListeners();
+            setupChatListeners();
         }
 
-        // ====== 4. 監聽器與防外流模式 ======
-        function setupListeners() {
+        function setupChatListeners() {
             onValue(ref(db, `rooms/${currentRoomId}/settings/secureMode`), (snap) => {
                 const isSecure = snap.val() || false;
                 document.body.classList.toggle('secure-mode', isSecure);
@@ -225,30 +329,55 @@
 
             onValue(ref(db, `rooms/${currentRoomId}/members`), async (snap) => {
                 const members = snap.val();
-                if (!members) return; 
-                if (!members[myUserId]) { alert("你已離開房間"); return window.location.reload(); }
+                if (!members) { alert("房間已被解散或關閉！"); return window.location.reload(); }
+                if (!members[myUserId]) { alert("你已離開或被踢出房間"); return window.location.reload(); }
 
                 const hostSnap = await get(ref(db, `rooms/${currentRoomId}/host`));
-                isHost = (hostSnap.val() === myUserId);
+                let currentHost = hostSnap.val();
+
+                if (!members[currentHost]) {
+                    let oldestUser = null, oldestTime = Infinity;
+                    for (let uid in members) {
+                        if (members[uid].joinedAt < oldestTime) { oldestTime = members[uid].joinedAt; oldestUser = uid; }
+                    }
+                    if (oldestUser === myUserId) {
+                        await set(ref(db, `rooms/${currentRoomId}/host`), myUserId);
+                        isHost = true; currentHost = myUserId;
+                    }
+                } else {
+                    isHost = (currentHost === myUserId);
+                }
                 
                 document.getElementById('btn-disband').classList.toggle('hidden', !isHost);
                 document.getElementById('host-controls').classList.toggle('hidden', !isHost);
-                renderMembers(members, hostSnap.val());
+                
+                const list = document.getElementById('members-list');
+                list.innerHTML = '';
+                for (let uid in members) {
+                    const mem = members[uid];
+                    list.innerHTML += `
+                        <div class="flex items-center justify-between bg-white p-2 rounded-lg border">
+                            <div class="flex items-center space-x-2">
+                                <img src="${mem.avatar}" class="w-8 h-8 rounded-full border object-cover">
+                                <div>
+                                    <p class="text-sm font-medium">${mem.name}${uid===myUserId ? '(你)' : ''}</p>
+                                    ${uid===currentHost ? '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded">房主</span>' : ''}
+                                </div>
+                            </div>
+                            ${(isHost && uid!==myUserId) ? `<button class="text-xs text-red-500" onclick="window.kick('${uid}')">踢出</button>` : ''}
+                        </div>`;
+                }
             });
 
             onChildAdded(ref(db, `rooms/${currentRoomId}/messages`), (snap) => renderMessage(snap.key, snap.val()));
             onChildChanged(ref(db, `rooms/${currentRoomId}/messages`), (snap) => updateMessageReactions(snap.key, snap.val()));
         }
 
-        // ====== 5. 渲染訊息與 @提及功能 ======
         function renderMessage(msgId, msg) {
             const isMe = msg.sender === myUserId;
-            const isMentioningMe = msg.text && msg.text.includes('@' + myNickname);
-            
             let formattedText = msg.text ? msg.text.replace(/@(\S+)/g, '<span class="text-blue-600 font-bold bg-blue-100 px-1 rounded">@$1</span>') : '';
 
             const msgDiv = document.createElement('div');
-            msgDiv.id = `msg-${msgId}`;
             msgDiv.className = `flex items-end space-x-2 relative group ${isMe ? 'justify-end' : ''}`;
             
             let html = '';
@@ -256,27 +385,16 @@
             
             html += `<div class="max-w-[75%] relative">`;
             if (!isMe) html += `<p class="text-xs text-gray-500 mb-1 ml-1">${msg.name}</p>`;
-            
-            if (msg.replyTo) {
-                html += `<div class="bg-black/5 text-xs p-1.5 rounded-t-xl border-l-4 border-indigo-400 mb-[-5px] pb-2 text-gray-600 truncate">
-                            回覆 ${msg.replyTo.name}:${msg.replyTo.text || '圖片'}
-                         </div>`;
-            }
+            if (msg.replyTo) html += `<div class="bg-black/5 text-xs p-1.5 rounded-t-xl border-l-4 border-indigo-400 mb-[-5px] pb-2 text-gray-600 truncate">回覆 ${msg.replyTo.name}:${msg.replyTo.text || '圖片'}</div>`;
 
-            const bubbleBg = isMe ? 'bg-indigo-600 text-white' : (isMentioningMe ? 'bg-yellow-100 text-gray-800 ring-2 ring-yellow-400' : 'bg-white text-gray-800');
-            html += `<div class="px-4 py-2 rounded-2xl shadow-sm break-words relative z-10 ${bubbleBg}${isMe?'rounded-br-none':'rounded-bl-none'}">`;
-            
+            html += `<div class="px-4 py-2 rounded-2xl shadow-sm break-words relative z-10 ${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}">`;
             if (msg.image) html += `<img src="${msg.image}" class="max-w-full rounded-lg mb-1 cursor-pointer" onclick="window.open('${msg.image}')">`;
             if (formattedText) html += `<span>${formattedText}</span>`;
             
-            html += `</div>`;
-            html += `<div id="reactions-${msgId}" class="flex flex-wrap gap-1 mt-1 z-20 relative"></div>`;
-            html += `</div>`;
+            html += `</div><div id="reactions-${msgId}" class="flex flex-wrap gap-1 mt-1 z-20 relative"></div></div>`;
 
             const starBtn = `<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-yellow-500 transition px-2 pb-4 text-xl" onclick="window.showStarMenu(event, '${msgId}', '${msg.name}', \`${msg.text ? msg.text.replace(/`/g, "'") : '[圖片]'}\`)">⭐</button>`;
-            
-            if (isMe) msgDiv.innerHTML = starBtn + html;
-            else msgDiv.innerHTML = html + starBtn;
+            msgDiv.innerHTML = isMe ? starBtn + html : html + starBtn;
 
             chatMessages.appendChild(msgDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -285,131 +403,272 @@
 
         function updateMessageReactions(msgId, msg) {
             const container = document.getElementById(`reactions-${msgId}`);
-            if (!container) return;
-            container.innerHTML = '';
+            if (!container) return; container.innerHTML = '';
             if (!msg.reactions) return;
-
             for (const [emoji, users] of Object.entries(msg.reactions)) {
                 const count = Object.keys(users).length;
-                if (count > 0) {
-                    const hasMyReact = users[myUserId];
-                    container.innerHTML += `<span class="text-xs bg-white border px-1.5 py-0.5 rounded-full shadow-sm cursor-pointer ${hasMyReact ? 'bg-indigo-50 border-indigo-300' : ''}" onclick="window.addReaction('${emoji}', '${msgId}')">${emoji} ${count}</span>`;
-                }
+                if (count > 0) container.innerHTML += `<span class="text-xs bg-white border px-1.5 py-0.5 rounded-full shadow-sm cursor-pointer" onclick="window.addReaction('${emoji}', '${msgId}')">${emoji} ${count}</span>`;
             }
         }
 
-        // ====== 6. 發送訊息 (文字與圖片) ======
-        function sendMessage(imgBase64 = null) {
+        function sendChatMessage(imgBase64 = null) {
             const text = messageInput.value.trim();
             if (!text && !imgBase64) return;
-
-            const payload = {
-                sender: myUserId,
-                name: myNickname,
-                avatar: myAvatarBase64,
-                timestamp: Date.now()
-            };
-            
+            const payload = { sender: myUserId, name: myNickname, avatar: myAvatarBase64, timestamp: Date.now() };
             if (text) payload.text = text;
             if (imgBase64) payload.image = imgBase64;
-            if (replyingTo) {
-                payload.replyTo = replyingTo;
-                window.cancelReply(); 
-            }
-
+            if (replyingTo) { payload.replyTo = replyingTo; window.cancelReply(); }
             push(ref(db, `rooms/${currentRoomId}/messages`), payload);
             messageInput.value = '';
         }
 
-        document.getElementById('btn-send').addEventListener('click', () => sendMessage());
-        messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-        
-        document.getElementById('chat-img-input').addEventListener('change', (e) => {
-            processImage(e.target.files[0], (base64) => {
-                sendMessage(base64);
-                e.target.value = ''; 
-            });
-        });
+        document.getElementById('btn-send').addEventListener('click', () => sendChatMessage());
+        messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+        document.getElementById('chat-img-input').addEventListener('change', (e) => { processImage(e.target.files[0], (b) => { sendChatMessage(b); e.target.value = ''; }); });
 
-        // ====== 7. 星星選單、回覆與表情互動 ======
-        window.showStarMenu = (event, msgId, name, text) => {
-            currentSelectedMsgId = msgId;
-            replyingTo = { id: msgId, name: name, text: text }; 
-            
-            const rect = event.target.getBoundingClientRect();
-            starMenu.style.left = `${rect.left}px`;
-            starMenu.style.top = `${rect.top - 40}px`;
+        window.showStarMenu = (e, msgId, name, text) => {
+            currentSelectedMsgId = msgId; replyingTo = { id: msgId, name, text }; 
+            const rect = e.target.getBoundingClientRect();
+            starMenu.style.left = `${rect.left}px`; starMenu.style.top = `${rect.top - 40}px`;
             starMenu.classList.remove('hidden');
-            
-            setTimeout(() => {
-                document.addEventListener('click', function closeMenu() {
-                    starMenu.classList.add('hidden');
-                    document.removeEventListener('click', closeMenu);
-                });
-            }, 10);
+            setTimeout(() => { document.addEventListener('click', function close() { starMenu.classList.add('hidden'); document.removeEventListener('click', close); }); }, 10);
         };
-
-        window.triggerReply = () => {
-            document.getElementById('reply-preview').classList.remove('hidden');
-            document.getElementById('reply-to-name').innerText = replyingTo.name;
-            document.getElementById('reply-to-text').innerText = replyingTo.text;
-            messageInput.focus();
-        };
-
-        window.cancelReply = () => {
-            replyingTo = null;
-            document.getElementById('reply-preview').classList.add('hidden');
-        };
-
+        window.triggerReply = () => { document.getElementById('reply-preview').classList.remove('hidden'); document.getElementById('reply-to-name').innerText = replyingTo.name; messageInput.focus(); };
+        window.cancelReply = () => { replyingTo = null; document.getElementById('reply-preview').classList.add('hidden'); };
         window.addReaction = async (emoji, forceMsgId = null) => {
             const targetId = forceMsgId || currentSelectedMsgId;
             if (!targetId) return;
-
             const reactRef = ref(db, `rooms/${currentRoomId}/messages/${targetId}/reactions/${emoji}/${myUserId}`);
             const snap = await get(reactRef);
-            
-            if (snap.exists()) {
-                await remove(reactRef);
-            } else {
-                await set(reactRef, true);
-            }
+            if (snap.exists()) await remove(reactRef); else await set(reactRef, true);
         };
 
-        // ====== 8. 其他功能與安全攔截 ======
-        function renderMembers(members, hostId) {
-            const list = document.getElementById('members-list');
-            list.innerHTML = '';
-            for (let uid in members) {
-                const mem = members[uid];
-                list.innerHTML += `
-                    <div class="flex items-center justify-between bg-white p-2 rounded-lg border">
-                        <div class="flex items-center space-x-2">
-                            <img src="${mem.avatar}" class="w-8 h-8 rounded-full border object-cover">
-                            <div>
-                                <p class="text-sm font-medium">${mem.name} ${uid===myUserId ? '(你)' : ''}</p>
-                                ${uid===hostId ? '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded">房主</span>' : ''}
-                            </div>
-                        </div>
-                        ${(isHost && uid!==myUserId) ? `<button class="text-xs text-red-500 hover:underline" onclick="window.kick('${uid}')">踢出</button>` : ''}
-                    </div>`;
-            }
-        }
-
         window.kick = async (uid) => { if (confirm("確定踢出？")) await remove(ref(db, `rooms/${currentRoomId}/members/${uid}`)); };
-        document.getElementById('btn-disband').onclick = async () => { if(confirm("解散？")) await remove(ref(db, `rooms/${currentRoomId}`)); };
+        document.getElementById('btn-disband').onclick = async () => { if(confirm("解散房間將清除所有對話！")) await remove(ref(db, `rooms/${currentRoomId}`)); };
         document.getElementById('btn-leave').onclick = async () => { await remove(ref(db, `rooms/${currentRoomId}/members/${myUserId}`)); window.location.reload(); };
 
-        // --- 防截圖/右鍵攔截邏輯 ---
-        document.addEventListener('contextmenu', event => {
-            if (document.body.classList.contains('secure-mode')) event.preventDefault();
-        });
-        
+        document.addEventListener('contextmenu', e => { if (document.body.classList.contains('secure-mode')) e.preventDefault(); });
         document.addEventListener('keyup', (e) => {
             if (document.body.classList.contains('secure-mode') && e.key === 'PrintScreen') {
                 navigator.clipboard.writeText(`[系統警告] 此為機密聊天室，禁止截圖。觸發者：${myNickname} (${myUserId})`);
                 alert('⚠️ 系統已記錄您的截圖嘗試行為！');
             }
         });
+
+
+        // ====================================================
+        //                 PART B: 心情宇宙邏輯
+        // ====================================================
+        
+        const PLANETS = {
+            'happy': { name: '開心', color: 'bg-yellow-400', shadow: 'shadow-yellow-400', top: 20, left: 30 },
+            'bored': { name: '無聊', color: 'bg-gray-400', shadow: 'shadow-gray-400', top: 20, left: 70 },
+            'angry': { name: '憤怒', color: 'bg-red-500', shadow: 'shadow-red-500', top: 50, left: 20 },
+            'crush': { name: '心動', color: 'bg-pink-400', shadow: 'shadow-pink-400', top: 50, left: 80 },
+            'sad':   { name: '難過', color: 'bg-blue-400', shadow: 'shadow-blue-400', top: 80, left: 30 },
+            'other': { name: '其他', color: 'bg-white', shadow: 'shadow-white', top: 80, left: 70 }
+        };
+
+        let isUniverseInit = false;
+        let currentTargetEmotion = null; // 發文時選擇的星球
+        let currentReadingPostId = null; // 正在閱讀的星點 ID
+
+        window.enterUniverse = () => {
+            switchScreen('universe-screen');
+            if (!isUniverseInit) {
+                renderPlanets();
+                listenToUniverse();
+                isUniverseInit = true;
+            }
+        };
+
+        function renderPlanets() {
+            const container = document.getElementById('planets-container');
+            container.innerHTML = '';
+            for (const [key, p] of Object.entries(PLANETS)) {
+                // 星球本體
+                const planetDiv = document.createElement('div');
+                planetDiv.className = `absolute w-24 h-24 rounded-full ${p.color} shadow-[0_0_40px_rgba(255,255,255,0.2)] cursor-pointer flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform duration-300 z-10`;
+                planetDiv.style.top = `${p.top}%`;
+                planetDiv.style.left = `${p.left}%`;
+                planetDiv.onclick = () => openUniversePostModal(key);
+                
+                // + 號與提示文字
+                planetDiv.innerHTML = `
+                    <span class="text-black/50 text-4xl font-bold">+</span>
+                    <span class="absolute -bottom-8 text-white/80 text-sm font-bold tracking-widest whitespace-nowrap drop-shadow-md">${p.name}</span>
+                `;
+                container.appendChild(planetDiv);
+            }
+        }
+
+        function listenToUniverse() {
+            const postsRef = ref(db, 'universe/posts');
+            onChildAdded(postsRef, (snap) => renderStar(snap.key, snap.val()));
+            // 監聽回覆更新
+            onChildChanged(postsRef, (snap) => updateStarReplies(snap.key, snap.val()));
+        }
+
+        // 渲染主星點
+        function renderStar(postId, data) {
+            const container = document.getElementById('stars-container');
+            const p = PLANETS[data.emotion];
+            if (!p) return;
+
+            // 計算絕對位置 (儲存的是相對於星球的隨機角度與距離)
+            const starDiv = document.createElement('div');
+            starDiv.id = `ustar-${postId}`;
+            starDiv.className = `absolute w-3 h-3 rounded-full ${p.color} cursor-pointer star-glow hover:scale-150 transition z-20 shadow-[0_0_10px_currentColor]`;
+            starDiv.style.top = `calc(${p.top}% + ${data.offsetY}vh)`;
+            starDiv.style.left = `calc(${p.left}% + ${data.offsetX}vw)`;
+            
+            starDiv.onclick = () => openUniverseReadModal(postId, data);
+            
+            // 回覆容器 (為了讓小橘點環繞)
+            const replyContainer = document.createElement('div');
+            replyContainer.id = `ureply-${postId}`;
+            replyContainer.className = 'reply-orbit';
+            starDiv.appendChild(replyContainer);
+
+            container.appendChild(starDiv);
+            updateStarReplies(postId, data);
+        }
+
+        // 渲染小橘點 (回覆)
+        function updateStarReplies(postId, data) {
+            const container = document.getElementById(`ureply-${postId}`);
+            if (!container) return;
+            container.innerHTML = '';
+            if (!data.replies) return;
+
+            const replies = Object.values(data.replies);
+            const count = replies.length;
+            const radius = 15; // 像素
+
+            // 將小橘點均勻分佈在主星點周圍
+            replies.forEach((reply, index) => {
+                const angle = (index / count) * Math.PI * 2;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+
+                const dot = document.createElement('div');
+                dot.className = 'absolute w-1.5 h-1.5 bg-orange-400 rounded-full shadow-[0_0_5px_currentColor]';
+                dot.style.top = `calc(50% + ${y}px - 3px)`; // -3px 置中校正
+                dot.style.left = `calc(50% + ${x}px - 3px)`;
+                container.appendChild(dot);
+            });
+
+            // 如果目前閱讀視窗正好打開這篇文，一併更新列表
+            if (currentReadingPostId === postId) {
+                renderRepliesList(replies);
+            }
+        }
+
+        // --- 發布心事 ---
+        window.openUniversePostModal = (emotion) => {
+            currentTargetEmotion = emotion;
+            document.getElementById('u-post-title').innerText = `為「${PLANETS[emotion].name}」留下一顆星...`;
+            document.getElementById('u-post-nickname').value = myNickname || '';
+            document.getElementById('u-post-text').value = '';
+            document.getElementById('universe-post-modal').classList.remove('hidden');
+        };
+
+        document.getElementById('btn-u-submit').addEventListener('click', async () => {
+            const text = document.getElementById('u-post-text').value.trim();
+            const name = document.getElementById('u-post-nickname').value.trim() || '匿名旅人';
+            if (!text) return alert("請輸入心事內容");
+
+            myNickname = name; // 順便更新全域暱稱
+
+            // 產生隨機擴散座標 (距星球中心約 8% ~ 20% 畫面距離)
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 8 + Math.random() * 12; 
+            const offsetX = Math.cos(angle) * distance;
+            const offsetY = Math.sin(angle) * distance;
+
+            await push(ref(db, 'universe/posts'), {
+                emotion: currentTargetEmotion,
+                name: name,
+                avatar: myAvatarBase64,
+                text: text,
+                timestamp: Date.now(),
+                offsetX: offsetX,
+                offsetY: offsetY
+            });
+
+            closeUniverseModals();
+        });
+
+        // --- 閱讀與回覆心事 ---
+        window.openUniverseReadModal = async (postId, data) => {
+            currentReadingPostId = postId;
+            
+            // 填入主文資料
+            document.getElementById('u-read-avatar').src = data.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=anonymous';
+            document.getElementById('u-read-name').innerText = data.name;
+            document.getElementById('u-read-time').innerText = new Date(data.timestamp).toLocaleString();
+            document.getElementById('u-read-text').innerText = data.text;
+            
+            document.getElementById('u-reply-input').value = '';
+            
+            // 讀取回覆
+            renderRepliesList(data.replies ? Object.values(data.replies) : []);
+
+            document.getElementById('universe-read-modal').classList.remove('hidden');
+        };
+
+        function renderRepliesList(repliesArray) {
+            const list = document.getElementById('u-replies-list');
+            list.innerHTML = '';
+            if (repliesArray.length === 0) {
+                list.innerHTML = '<p class="text-center text-sm text-gray-500 py-4">目前還沒有迴響，成為第一個給予溫暖的人吧。</p>';
+                return;
+            }
+
+            // 依時間排序
+            repliesArray.sort((a, b) => a.timestamp - b.timestamp).forEach(reply => {
+                list.innerHTML += `
+                    <div class="flex space-x-3 bg-gray-900/50 p-3 rounded-xl border border-gray-700/50">
+                        <img src="${reply.avatar}" class="w-8 h-8 rounded-full border border-orange-400/50">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-sm text-orange-200">${reply.name}</span>
+                                <span class="text-[10px] text-gray-500">${new Date(reply.timestamp).toLocaleString()}</span>
+                            </div>
+                            <p class="text-sm mt-1 text-gray-300">${reply.text}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            // 捲動到底部
+            list.parentElement.scrollTop = list.parentElement.scrollHeight;
+        }
+
+        document.getElementById('btn-u-reply').addEventListener('click', () => submitUniverseReply());
+        document.getElementById('u-reply-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') submitUniverseReply(); });
+
+        async function submitUniverseReply() {
+            if (!currentReadingPostId) return;
+            const text = document.getElementById('u-reply-input').value.trim();
+            if (!text) return;
+
+            const myName = document.getElementById('nickname').value || myNickname || '匿名旅人';
+            
+            await push(ref(db, `universe/posts/${currentReadingPostId}/replies`), {
+                name: myName,
+                avatar: myAvatarBase64,
+                text: text,
+                timestamp: Date.now()
+            });
+
+            document.getElementById('u-reply-input').value = '';
+        }
+
+        window.closeUniverseModals = () => {
+            document.getElementById('universe-post-modal').classList.add('hidden');
+            document.getElementById('universe-read-modal').classList.add('hidden');
+            currentReadingPostId = null;
+        };
 
     </script>
 </body>
