@@ -1,45 +1,57 @@
 /* ==========================================================================
-   頁面標記層 - 在整個畫面上疊一層透明 canvas，裡面藏盲水印
+   畫面浮水印層 - 讓一小段文字在畫面上緩慢飄動
    --------------------------------------------------------------------------
-   為什麼是「疊一層 canvas」而不是直接改 DOM：DOM 文字我們動不了像素，截圖時
-   文字邊緣會把低頻標記整片蓋掉；疊層寫在**中頻**係數上，頁面平坦處中頻幾乎
-   沒有能量，所以只要解碼時只挑低變異區塊（沒有文字的地方）投票就解得出來。
+   這一層是**看得見的**：目的是嚇阻與事後辨識，截圖或翻拍都會帶著它，肉眼可讀。
 
-   標記內容＝使用者 ID 指紋 ＋ 裝置簽章。裝置簽章是用 canvas 畫一段固定圖樣再
-   雜湊指紋（字型、反鋸齒、GPU、色彩處理都會影響輸出，這正是「這一台裝置」的
-   特徵），比 UA 可靠：UA 可以造假、會被隱藏、也會隨版本變動。UA 只在 canvas
-   不可用時當後備。
+   至於看不見的那一層寫在訊息文字裡（見 watermark.js 的 embedTextMark）：
+   人類外流最省事的做法是複製貼上，那條路會把零寬字元的標記一起帶走。
 
-   這個檔案只負責畫，寫入與取出的演算法在 watermark.js。
+   兩層都只顯示「目前這個使用者」的資訊，所以誰外流就追誰。
    ========================================================================== */
 
 import { deviceModel } from "./sanitize.js";
-import { embedOverlayWatermark, markPayload } from "./watermark.js";
 
-/* 標記層的不透明度。0.05 時整張畫面的平均差異約 5/255、最大 9，肉眼看不出來，
-   而全螢幕截圖（PNG 不失真）仍解得回來。 */
-const MARK_OPACITY = 0.05;
+/* 同時在畫面上飄的份數。太多會干擾閱讀，太少則容易被裁掉。 */
+const MARK_COUNT = 9;
 
-/* 標記層的底色：中性灰，疊上去只會讓對比略微降低，不會整片變亮或變暗 */
-const MARK_BASE = 128;
+/* 三組動畫輪流用，讓它們不同步 */
+const MOTIONS = ["mark-drift-a", "mark-drift-b", "mark-drift-c"];
 
-const SIGNATURE_WIDTH = 240;
-const SIGNATURE_HEIGHT = 60;
+/** 浮水印文字：暱稱（沒有就用「匿名」）＋ 裝置標籤 */
+export function markLabel(nickname, device) {
+    const name = String(nickname ?? "").trim() || "匿名";
+    const tag = String(device ?? "").trim() || "unknown";
+    return `${name} · ${tag}`;
+}
 
-/** 畫一段固定圖樣，回傳像素指紋（base36）。canvas 不可用時回空字串。 */
-export function deviceSignature(canvas) {
+/** 裝置標籤：機型（可讀）＋ canvas 指紋（認得出是哪一台） */
+export function deviceTag(userAgent, canvas) {
+    const model = deviceModel(userAgent).replace(/[^A-Za-z0-9._-]/g, "").slice(0, 12);
+    const signature = canvasSignature(canvas);
+    if (!signature) return model || "unknown";
+    return model ? `${model}-${signature}` : signature;
+}
+
+/**
+ * 在固定尺寸的 canvas 上畫一段固定圖樣，把像素雜湊成短標籤。
+ * 字型、反鋸齒、GPU、色彩處理都會影響輸出，所以這是「這台裝置」的特徵；
+ * 比 user agent 可靠（UA 可以造假、會被隱藏、也會隨版本變動）。
+ */
+export function canvasSignature(canvas) {
     const context = canvas?.getContext?.("2d");
     if (!context) return "";
 
-    canvas.width = SIGNATURE_WIDTH;
-    canvas.height = SIGNATURE_HEIGHT;
+    const width = 240;
+    const height = 60;
+    canvas.width = width;
+    canvas.height = height;
 
-    const gradient = context.createLinearGradient(0, 0, SIGNATURE_WIDTH, SIGNATURE_HEIGHT);
+    const gradient = context.createLinearGradient(0, 0, width, height);
     gradient.addColorStop(0, "#f6f5f0");
     gradient.addColorStop(0.5, "#5b7fe5");
     gradient.addColorStop(1, "#101820");
     context.fillStyle = gradient;
-    context.fillRect(0, 0, SIGNATURE_WIDTH, SIGNATURE_HEIGHT);
+    context.fillRect(0, 0, width, height);
 
     context.globalAlpha = 0.35;
     context.fillStyle = "#000000";
@@ -62,21 +74,13 @@ export function deviceSignature(canvas) {
     context.fillStyle = "#0099ff";
     context.fillRect(201, 9, 29, 19);
 
-    const image = context.getImageData(0, 0, SIGNATURE_WIDTH, SIGNATURE_HEIGHT);
+    const image = context.getImageData(0, 0, width, height);
     let hash = 0x811c9dc5;
-    for (let i = 0; i < image.data.length; i += 1) {
-        hash ^= image.data[i];
+    for (const byte of image.data) {
+        hash ^= byte;
         hash = Math.imul(hash, 0x01000193) >>> 0;
     }
     return hash.toString(36);
-}
-
-/** 裝置標籤＝機型（可讀）＋ canvas 指紋（辨識這台裝置），例如 SM-G991B-3k9v2xq */
-export function deviceTag(canvas, userAgent) {
-    const model = deviceModel(userAgent).replace(/[^A-Za-z0-9._-]/g, "").slice(0, 10);
-    const signature = deviceSignature(canvas);
-    if (!signature) return model || "unknown";
-    return model ? `${model}-${signature}` : signature;
 }
 
 /* 同一台裝置每次算出來都一樣，算一次就夠 */
@@ -85,66 +89,35 @@ let cachedTag = "";
 /** 目前裝置的標籤（機型-指紋）；canvas 不可用時退回機型或 unknown。 */
 export function currentDeviceTag() {
     if (!cachedTag) {
-        cachedTag = deviceTag(document.createElement("canvas"), navigator?.userAgent ?? "");
+        const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
+        cachedTag = deviceTag(userAgent, document.createElement("canvas"));
     }
     return cachedTag;
 }
 
 /**
- * 開始在畫面上維持標記層。回傳停止函式。
- * @param {HTMLCanvasElement} canvas 疊在最上層的 canvas
- * @param {string} userId 目前使用者的 ID
+ * 在容器裡鋪好浮水印文字並開始飄動。回傳「更新暱稱」的函式。
+ * @param {HTMLElement} container 覆蓋整個畫面的容器
  */
-export function startScreenMark(canvas, userId) {
-    if (!canvas) return () => {};
+export function startScreenMark(container) {
+    if (!container) return () => {};
 
-    const payload = markPayload(userId, currentDeviceTag());
-
-    let timer = null;
-
-    function draw() {
-        const context = canvas.getContext("2d");
-        if (!context) return;
-
-        const ratio = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
-        const width = Math.max(64, Math.round(window.innerWidth * ratio));
-        const height = Math.max(64, Math.round(window.innerHeight * ratio));
-        if (canvas.width !== width || canvas.height !== height) {
-            canvas.width = width;
-            canvas.height = height;
-        }
-
-        const image = context.createImageData(width, height);
-        const pixels = image.data;
-        for (let i = 0; i < pixels.length; i += 4) {
-            pixels[i] = MARK_BASE;
-            pixels[i + 1] = MARK_BASE;
-            pixels[i + 2] = MARK_BASE;
-            pixels[i + 3] = 255;
-        }
-        if (!embedOverlayWatermark(pixels, width, height, payload)) {
-            console.warn("畫面標記層沒有寫入（視窗太小）");
-            return;
-        }
-        context.putImageData(image, 0, 0);
+    const marks = [];
+    for (let index = 0; index < MARK_COUNT; index += 1) {
+        const mark = document.createElement("span");
+        mark.className = "mark-text";
+        /* 起始位置平均分散，動畫各自不同相，才不會整排一起動 */
+        mark.style.left = `${((index * 37 + 4) % 82) + 4}%`;
+        mark.style.top = `${((index * 23 + 6) % 84) + 4}%`;
+        mark.style.animationName = MOTIONS[index % MOTIONS.length];
+        mark.style.animationDuration = `${44 + (index % 5) * 9}s`;
+        mark.style.animationDelay = `-${(index * 6) % 30}s`;
+        container.appendChild(mark);
+        marks.push(mark);
     }
 
-    function schedule() {
-        if (timer !== null) clearTimeout(timer);
-        timer = setTimeout(() => {
-            timer = null;
-            draw();
-        }, 250);
-    }
-
-    canvas.style.opacity = String(MARK_OPACITY);
-    draw();
-    window.addEventListener("resize", schedule);
-    window.addEventListener("orientationchange", schedule);
-
-    return () => {
-        if (timer !== null) clearTimeout(timer);
-        window.removeEventListener("resize", schedule);
-        window.removeEventListener("orientationchange", schedule);
+    return function update(nickname) {
+        const text = markLabel(nickname, currentDeviceTag());
+        for (const mark of marks) mark.textContent = text;
     };
 }

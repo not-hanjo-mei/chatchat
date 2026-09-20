@@ -30,7 +30,7 @@ import {
 
 import { applyAvatar } from "./avatar.js";
 import { currentDeviceTag, startScreenMark } from "./screenmark.js";
-import { embedImageWatermark, markPayload } from "./watermark.js";
+import { embedImageWatermark, embedTextMark, markPayload } from "./watermark.js";
 import {
     cleanName,
     cleanText,
@@ -532,6 +532,7 @@ el.roomIdInput.addEventListener("change", rememberLastInput);
 /* 暱稱一改就換一張對應的頭像，讓使用者知道名字決定臉 */
 el.nicknameInput.addEventListener("input", () => {
     setHidden(el.avatarPreview, false);
+    updateScreenMark(el.nicknameInput.value);
     applyAvatar(el.avatarPreview, el.nicknameInput.value, state.avatar, AVATAR_SIDE);
 });
 
@@ -877,11 +878,15 @@ function renderMessage(msgId, rawMessage) {
     el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
 }
 
-/** 只把 @標記 轉成元素，其餘一律 textContent，杜絕 HTML 注入 */
+/**
+ * 只把 @標記 轉成元素，其餘一律 textContent，杜絕 HTML 注入。
+ * 文字進畫面時才插入零寬字元的隱形標記，讓複製出去的文字帶著「誰看的」。
+ */
 function renderRichText(text) {
     const fragment = document.createDocumentFragment();
+    const marked = embedTextMark(text, markPayload(state.userId, currentDeviceTag()));
 
-    for (const part of text.split(/(@\S+)/g)) {
+    for (const part of marked.split(/(@\S+)/g)) {
         if (part.startsWith("@") && part.length > 1) {
             const mention = document.createElement("span");
             mention.className = "mention";
@@ -1487,7 +1492,10 @@ function openReadModal(postId, data) {
     applyAvatar(el.readAvatar, postName, data.avatar, 80);
     el.readName.textContent = postName;
     el.readTime.textContent = formatTime(data.timestamp);
-    el.readText.textContent = cleanText(data.text, MAX_POST);
+    el.readText.textContent = embedTextMark(
+        cleanText(data.text, MAX_POST),
+        markPayload(state.userId, currentDeviceTag()),
+    );
     el.replyInput.value = "";
     autoResize(el.replyInput);
 
@@ -1629,7 +1637,8 @@ autoResizeAll();
 prefillInputs();
 state.avatar = readStoredAvatar();
 syncAvatarControls();
-startScreenMark(el.markLayer, state.userId);
+const updateScreenMark = startScreenMark(el.markLayer);
+updateScreenMark(state.nickname);
 applyAvatar(el.avatarPreview, el.nicknameInput.value, state.avatar, AVATAR_SIDE);
 applyAvatar(el.heroAvatar, "ChatChat", "", 192);
 void restoreSession();

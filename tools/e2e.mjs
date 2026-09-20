@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import { JSDOM, VirtualConsole } from "jsdom";
 
-import { extractOverlayWatermark, markPayload } from "../assets/js/watermark.js";
+import { extractTextMark, markPayload } from "../assets/js/watermark.js";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workdir = mkdtempSync(join(tmpdir(), "chatchat-e2e-"));
@@ -95,18 +95,8 @@ async function boot({ tag, session = null, lastInput = null, avatar = null, aler
     window.confirm = () => true;
     window.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
     window.scrollTo = () => {};
-    /* jsdom 沒有 2D context：頭像引擎那條路直接回 null（走降級路徑），
-       但標記層給一個真的畫布樁，這樣才驗得到「標記到底有沒有畫上去」。 */
-    window.HTMLCanvasElement.prototype.getContext = function getContext() {
-        if (this.id !== "mark-layer") return null;
-        this.__ctx ??= {
-            createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
-            putImageData: (image) => { this.__image = image; },
-            getImageData: (x, y, width, height) => this.__image
-                ?? { width, height, data: new Uint8ClampedArray(width * height * 4) },
-        };
-        return this.__ctx;
-    };
+    /* jsdom 沒有 2D context，一律回 null，走降級路徑（頭像與裝置簽章都退回預設） */
+    window.HTMLCanvasElement.prototype.getContext = () => null;
     if (session) window.sessionStorage.setItem("chatchat-session", JSON.stringify(session));
     if (lastInput) window.localStorage.setItem("chatchat-last-input", JSON.stringify(lastInput));
     if (avatar) window.localStorage.setItem("chatchat-avatar", avatar);
@@ -168,20 +158,9 @@ $("nickname").dispatchEvent(new window.Event("change", { bubbles: true }));
 check("改暱稱不會拋錯（會記住上次輸入）", errors.length === 0, errors.join(" / "));
 
 const markLayer = $("mark-layer");
-check("畫面上有一層透明標記層", markLayer !== null && Number(markLayer.style.opacity) > 0 && Number(markLayer.style.opacity) < 0.1,
-    markLayer ? markLayer.style.opacity : "找不到");
-
-/* crypto.randomUUID 是樁，所以使用者 ID 與標記內容可以事先算出來 */
-const USER_ID = "user_00000000000040008000";
-const expectedPayload = markPayload(USER_ID, "unknown");
-check("標記層真的被畫出來（有像素）", Boolean(markLayer.__image) && markLayer.__image.width > 256,
-    markLayer.__image ? `${markLayer.__image.width}x${markLayer.__image.height}` : "沒有像素");
-{
-    const drawn = markLayer.__image;
-    const recovered = drawn ? extractOverlayWatermark(drawn.data, drawn.width, drawn.height) : "(沒有像素)";
-    check("從畫出來的標記層解得回使用者標記", recovered === expectedPayload,
-        `解出 ${JSON.stringify(recovered)}`);
-}
+const markTexts = markLayer ? Array.from(markLayer.querySelectorAll(".mark-text")) : [];
+check("畫面上有飄動的浮水印文字", markTexts.length >= 5, String(markTexts.length));
+check("浮水印顯示暱稱與裝置", markTexts[0]?.textContent === "匿名 · unknown", markTexts[0]?.textContent ?? "");
 click($("btn-create"));
 await flush(14);
 
@@ -207,6 +186,17 @@ const stored = Object.values(stub.__dump("rooms/TESTROOM/messages") ?? {});
 check("訊息寫進資料庫", stored.some((message) => message.text === "hello via button"),
     JSON.stringify(stored).slice(0, 160));
 check("訊息出現在畫面上", $("chat-messages").textContent.includes("hello via button"));
+
+/* 訊息文字進畫面時會插入零寬字元的標記：複製出去就帶著「誰看的」 */
+{
+    const USER_ID = "user_00000000000040008000";
+    const expected = markPayload(USER_ID, "unknown");
+    const bubble = document.querySelector(".bubble");
+    const shown = bubble?.textContent ?? "";
+    const strip = (value) => value.replace(/[\u200b\u200c\u200d\u2060]/g, "");
+    check("訊息文字帶著隱形標記", extractTextMark(shown) === expected, `解出 ${JSON.stringify(extractTextMark(shown))}`);
+    check("隱形標記不影響看得見的文字", strip(shown) === "hello via button", strip(shown));
+}
 check("送出後輸入框清空", $("message-input").value === "");
 check("沒有出現送出失敗提示", $("composer-notice").classList.contains("is-hidden"),
     $("composer-notice").textContent);
@@ -362,7 +352,8 @@ sky.getElementById("stars-container").dispatchEvent(
 );
 await flush(6);
 check("點星點附近就會開啟心事", !readModal.classList.contains("is-hidden"));
-check("開啟的是正確的心事內容", sky.getElementById("u-read-text").textContent === "這是一則心事",
+check("開啟的是正確的心事內容",
+    sky.getElementById("u-read-text").textContent.replace(/[\u200b\u200c\u200d\u2060]/g, "") === "這是一則心事",
     JSON.stringify(sky.getElementById("u-read-text").textContent));
 
 /* 關掉後改點星球，應該分享心事而不是開啟閱讀 */

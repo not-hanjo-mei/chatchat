@@ -7,9 +7,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { deviceModel } from "../assets/js/sanitize.js";
 import {
     embedImageWatermark,
-    embedOverlayWatermark,
+    embedTextMark,
     extractImageWatermark,
-    extractOverlayWatermark,
+    extractTextMark,
     fingerprint,
     markPayload,
     PAYLOAD_MAX as PAYLOAD_MAX_PUBLIC,
@@ -216,94 +216,29 @@ check("不合規的標記內容直接拒絕", () => {
     assert.equal(embedImageWatermark(pixels, 640, 480, "x".repeat(60)), false);
 });
 
-/* ---------- 畫面疊層標記（canvas 疊在頁面上） ---------- */
-/* 模擬一頁「淺色底 + 黑色文字條」的畫面 */
-function pageImage(width, height) {
-    const pixels = new Uint8ClampedArray(width * height * 4);
-    for (let i = 0; i < pixels.length; i += 4) {
-        pixels[i] = 246; pixels[i + 1] = 245; pixels[i + 2] = 240; pixels[i + 3] = 255;
-    }
-    for (let line = 0; line < Math.floor(height / 40); line++) {
-        const top = 20 + line * 40;
-        for (let glyph = 0; glyph < Math.floor(width / 14) - 2; glyph++) {
-            const left = 12 + glyph * 14;
-            for (let y = 0; y < 12; y++) {
-                for (let x = 0; x < 7; x++) {
-                    const at = ((top + y) * width + left + x) * 4;
-                    pixels[at] = 20; pixels[at + 1] = 20; pixels[at + 2] = 24;
-                }
-            }
-        }
-    }
-    return pixels;
-}
-
-function overlayImage(width, height) {
-    const pixels = new Uint8ClampedArray(width * height * 4);
-    for (let i = 0; i < pixels.length; i += 4) {
-        pixels[i] = 128; pixels[i + 1] = 128; pixels[i + 2] = 128; pixels[i + 3] = 255;
-    }
-    assert.ok(embedOverlayWatermark(pixels, width, height, "wd64d9.SM-G991B"), "疊層寫不進去");
-    return pixels;
-}
-
-function composite(page, overlay, alpha) {
-    const out = new Uint8ClampedArray(page.length);
-    for (let i = 0; i < out.length; i += 4) {
-        for (let channel = 0; channel < 3; channel++) {
-            out[i + channel] = Math.round((1 - alpha) * page[i + channel] + alpha * overlay[i + channel]);
-        }
-        out[i + 3] = 255;
-    }
-    return out;
-}
-
-check("疊一層透明 canvas 之後，截圖仍取得回標記", () => {
-    const width = 600;
-    const height = 1200;
-    const page = pageImage(width, height);
-    const marked = composite(page, overlayImage(width, height), 0.05);
-    assert.equal(extractOverlayWatermark(marked, width, height), "wd64d9.SM-G991B");
+/* ---------- 文字隱形標記（複製貼上會帶走的那一層） ---------- */
+check("訊息文字裡插得進隱形標記，取出來一致", () => {
+    const marked = embedTextMark("明天見", "wd64d9.SM-G991B");
+    assert.equal(extractTextMark(marked), "wd64d9.SM-G991B");
 });
 
-check("疊層只留下很小的視覺差異", () => {
-    const width = 600;
-    const height = 1200;
-    const page = pageImage(width, height);
-    const marked = composite(page, overlayImage(width, height), 0.05);
-    let total = 0;
-    let worst = 0;
-    for (let i = 0; i < marked.length; i += 4) {
-        const delta = Math.abs(marked[i] - page[i]);
-        total += delta;
-        if (delta > worst) worst = delta;
-    }
-    assert.ok(total / (marked.length / 4) < 8, `平均差 ${total / (marked.length / 4)} 過大`);
-    assert.ok(worst <= 20, `最大差 ${worst} 過大`);
+check("標記不改變看得見的文字", () => {
+    const original = "這是一則測試訊息，含表情 😀 與標點。";
+    const marked = embedTextMark(original, "wd64d9.SM-G991B");
+    assert.ok(marked.length > original.length, "沒有插入任何字元");
+    /* 把零寬字元拿掉之後，必須與原文一字不差 */
+    assert.equal(marked.replace(/[\u200b\u200c\u200d\u2060]/g, ""), original);
 });
 
-check("截圖上下被切掉（格線位移）仍取得回標記", () => {
-    const width = 600;
-    const page = pageImage(width, 1200);
-    const overlay = overlayImage(width, 1200);
-    const shifted = new Uint8ClampedArray(width * 1240 * 4);
-    for (let i = 0; i < shifted.length; i += 4) {
-        shifted[i] = 40; shifted[i + 1] = 40; shifted[i + 2] = 44; shifted[i + 3] = 255;
-    }
-    for (let y = 0; y < 1200; y++) {
-        for (let x = 0; x < width; x++) {
-            const from = (y * width + x) * 4;
-            const to = ((y + 26) * width + x) * 4;
-            for (let channel = 0; channel < 3; channel++) {
-                shifted[to + channel] = Math.round(0.95 * page[from + channel] + 0.05 * overlay[from + channel]);
-            }
-        }
-    }
-    assert.equal(extractOverlayWatermark(shifted, width, 1240), "wd64d9.SM-G991B");
+check("長訊息會重複寫好幾份，短訊息也能取回", () => {
+    const long = embedTextMark("a".repeat(600), "wd64d9.SM-G991B");
+    assert.equal(extractTextMark(long), "wd64d9.SM-G991B");
+    assert.equal(extractTextMark(embedTextMark("嗨", "wd64d9.SM-G991B")), "wd64d9.SM-G991B");
 });
 
-check("沒寫標記的畫面取不到東西", () => {
-    assert.equal(extractOverlayWatermark(pageImage(600, 1200), 600, 1200), "");
+check("乾淨的文字取不到東西", () => {
+    assert.equal(extractTextMark("這是一段沒有標記的文字"), "");
+    assert.equal(extractTextMark(""), "");
 });
 
 /* ---------- 時間 ---------- */

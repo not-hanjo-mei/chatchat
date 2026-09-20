@@ -110,13 +110,39 @@ function bitsToPayload(bits) {
     return checksum16(payload) === expected ? String.fromCharCode(...payload) : "";
 }
 
-/** 多數決：同一個位元被寫進很多區塊與三個通道，票多的贏 */
-function majorityBits(ones, counts) {
+/*
+ * 位元怎麼對應到區塊：把整串位元排成 16x24 的磚，鋪滿整張圖。
+ * 這樣「旁邊被加了東西」「被裁掉一塊」「整體位移」都只是讓磚的起點移動，
+ * 解碼端搜尋 384 種 2D 位移就能對回來——不能像連續序號那樣一位移就全毀。
+ */
+const TILE_COLUMNS = 24;
+const TILE_ROWS = BLOCK_BITS / TILE_COLUMNS;
+
+function tileSlot(row, column) {
+    return (row % TILE_ROWS) * TILE_COLUMNS + (column % TILE_COLUMNS);
+}
+
+/** 從「槽位 → 票數」統計出負載：多數決後試所有 2D 位移，表頭會擋掉錯的位移 */
+function readTiledPayload(ones, counts) {
     const bits = new Uint8Array(BLOCK_BITS);
     for (let i = 0; i < BLOCK_BITS; i++) {
         bits[i] = counts[i] > 0 && ones[i] * 2 > counts[i] ? 1 : 0;
     }
-    return bits;
+
+    const candidate = new Uint8Array(BLOCK_BITS);
+    for (let shiftRow = 0; shiftRow < TILE_ROWS; shiftRow++) {
+        for (let shiftColumn = 0; shiftColumn < TILE_COLUMNS; shiftColumn++) {
+            for (let row = 0; row < TILE_ROWS; row++) {
+                for (let column = 0; column < TILE_COLUMNS; column++) {
+                    candidate[row * TILE_COLUMNS + column] =
+                        bits[((row + shiftRow) % TILE_ROWS) * TILE_COLUMNS + ((column + shiftColumn) % TILE_COLUMNS)];
+                }
+            }
+            const payload = bitsToPayload(candidate);
+            if (payload) return payload;
+        }
+    }
+    return "";
 }
 
 /* ---------------- 小工具 ---------------- */
@@ -237,43 +263,49 @@ function haarInverse(low, detail, width, height) {
 
 /* ---------------- 4x4 DCT ---------------- */
 
-const COS = (() => {
-    const table = new Float64Array(BLOCK_VALUES);
-    for (let u = 0; u < BLOCK_SIDE; u++) {
-        const scale = u === 0 ? Math.sqrt(1 / BLOCK_SIDE) : Math.sqrt(2 / BLOCK_SIDE);
-        for (let x = 0; x < BLOCK_SIDE; x++) {
-            table[u * BLOCK_SIDE + x] = Math.cos(((2 * x + 1) * u * Math.PI) / (2 * BLOCK_SIDE)) * scale;
+function makeTable(size) {
+    const table = new Float64Array(size * size);
+    for (let u = 0; u < size; u++) {
+        const scale = u === 0 ? Math.sqrt(1 / size) : Math.sqrt(2 / size);
+        for (let x = 0; x < size; x++) {
+            table[u * size + x] = Math.cos(((2 * x + 1) * u * Math.PI) / (2 * size)) * scale;
         }
     }
     return table;
-})();
+}
 
-const dctScratch = new Float64Array(BLOCK_VALUES);
+const TABLE4 = makeTable(4);
+const TABLE8 = makeTable(8);
 
+function transformSize(source, out, size, table, inverse) {
+    const scratch = new Float64Array(size * size);
+    for (let row = 0; row < size; row++) {
+        for (let k = 0; k < size; k++) {
+            let sum = 0;
+            for (let i = 0; i < size; i++) {
+                sum += inverse
+                    ? source[row * size + i] * table[i * size + k]
+                    : source[row * size + i] * table[k * size + i];
+            }
+            scratch[row * size + k] = sum;
+        }
+    }
+    for (let column = 0; column < size; column++) {
+        for (let k = 0; k < size; k++) {
+            let sum = 0;
+            for (let i = 0; i < size; i++) {
+                sum += inverse
+                    ? scratch[i * size + column] * table[i * size + k]
+                    : scratch[i * size + column] * table[k * size + i];
+            }
+            out[k * size + column] = sum;
+        }
+    }
+}
+
+/** 4x4 正交 DCT（圖片盲水印的區塊用） */
 function blockTransform(source, out, inverse) {
-    const n = BLOCK_SIDE;
-    for (let row = 0; row < n; row++) {
-        for (let k = 0; k < n; k++) {
-            let sum = 0;
-            for (let i = 0; i < n; i++) {
-                sum += inverse
-                    ? source[row * n + i] * COS[i * n + k]
-                    : source[row * n + i] * COS[k * n + i];
-            }
-            dctScratch[row * n + k] = sum;
-        }
-    }
-    for (let column = 0; column < n; column++) {
-        for (let k = 0; k < n; k++) {
-            let sum = 0;
-            for (let i = 0; i < n; i++) {
-                sum += inverse
-                    ? dctScratch[i * n + column] * COS[i * n + k]
-                    : dctScratch[i * n + column] * COS[k * n + i];
-            }
-            out[k * n + column] = sum;
-        }
-    }
+    transformSize(source, out, BLOCK_SIDE, TABLE4, inverse);
 }
 
 /* ---------------- 4x4 SVD（單邊 Jacobi） ---------------- */
@@ -389,6 +421,50 @@ function blockActivity(low, halfWidth, row, column) {
     return Math.sqrt(variance / BLOCK_VALUES);
 }
 
+/** 雙線性縮放（取出端掃描倍率用；不需要高品質，只需要可預期） */
+function rescale(pixels, width, height, factor) {
+    const targetWidth = Math.max(8, Math.round(width * factor));
+    const targetHeight = Math.max(8, Math.round(height * factor));
+    const out = new Uint8ClampedArray(targetWidth * targetHeight * 4);
+
+    for (let y = 0; y < targetHeight; y++) {
+        const sourceY = Math.min(height - 1, y / factor);
+        const y0 = Math.floor(sourceY);
+        const y1 = Math.min(height - 1, y0 + 1);
+        const wy = sourceY - y0;
+        for (let x = 0; x < targetWidth; x++) {
+            const sourceX = Math.min(width - 1, x / factor);
+            const x0 = Math.floor(sourceX);
+            const x1 = Math.min(width - 1, x0 + 1);
+            const wx = sourceX - x0;
+            const at = (y * targetWidth + x) * 4;
+            for (let channel = 0; channel < 4; channel++) {
+                const top = pixels[(y0 * width + x0) * 4 + channel] * (1 - wx) + pixels[(y0 * width + x1) * 4 + channel] * wx;
+                const bottom = pixels[(y1 * width + x0) * 4 + channel] * (1 - wx) + pixels[(y1 * width + x1) * 4 + channel] * wx;
+                out[at + channel] = top * (1 - wy) + bottom * wy;
+            }
+        }
+    }
+    return { pixels: out, width: targetWidth, height: targetHeight };
+}
+
+/*
+ * 取出時要掃的倍率。標記本身在 0.9x~1.06x 之間都還在（實測），但格線必須對得
+ * 夠準才解得開：8 像素的格子只要縮放誤差 0.5%，跨一張圖就會漂掉半格。所以候選
+ * 倍率要密（每 0.5% 一個），由近到遠排序，常見情況第一次就中。
+ */
+export const SCALE_CANDIDATES = (() => {
+    const near = [];
+    for (let step = 1; step <= 12; step += 1) {
+        const offset = step * 0.005;
+        near.push(Number((1 - offset).toFixed(4)), Number((1 + offset).toFixed(4)));
+    }
+    near.sort((left, right) => Math.abs(left - 1) - Math.abs(right - 1));
+
+    const far = [0.9, 1.1, 0.85, 1.15, 0.8, 1.25, 0.75, 1.33, 0.67, 1.5, 0.5, 2];
+    return [1, ...near.filter((value) => Math.abs(value - 1) > 0.005), ...far];
+})();
+
 function blockCount(width, height) {
     const layout = blockLayout(width, height);
     return layout.columns * layout.rows;
@@ -428,7 +504,7 @@ export function embedImageWatermark(pixels, width, height, payload, { stepMain =
                 for (let i = 0; i < BLOCK_VALUES; i++) permuted[i] = shuffled[ORDER[i]];
 
                 const { u, s, v } = svd4(permuted);
-                const bit = bits[index % BLOCK_BITS];
+                const bit = bits[tileSlot(row, column)];
                 s[0] = quantize(s[0], stepMain, bit);
                 if (stepSecond) s[1] = quantize(s[1], stepSecond, bit);
                 svdRebuild(u, s, v, permuted);
@@ -455,7 +531,16 @@ export function embedImageWatermark(pixels, width, height, payload, { stepMain =
  * 從 RGBA 像素取回標記。
  * @returns {string} 標記字串；取不到就回空字串
  */
-export function extractImageWatermark(pixels, width, height, { stepMain = STEP_MAIN, stepSecond = STEP_SECOND, minActivity = MIN_ACTIVITY } = {}) {
+export function extractImageWatermark(pixels, width, height, { stepMain = STEP_MAIN, stepSecond = STEP_SECOND, minActivity = MIN_ACTIVITY, scales = [1] } = {}) {
+    for (const scale of scales) {
+        const view = scale === 1 ? { pixels, width, height } : rescale(pixels, width, height, scale);
+        const payload = extractImageWatermarkOnce(view.pixels, view.width, view.height, { stepMain, stepSecond, minActivity });
+        if (payload) return payload;
+    }
+    return "";
+}
+
+function extractImageWatermarkOnce(pixels, width, height, { stepMain, stepSecond, minActivity }) {
     if (blockCount(width, height) < BLOCK_BITS) return "";
 
     const planes = toYuv(pixels, width, height);
@@ -471,7 +556,6 @@ export function extractImageWatermark(pixels, width, height, { stepMain = STEP_M
 
         for (let row = 0; row < layout.rows; row++) {
             for (let column = 0; column < layout.columns; column++) {
-                const index = row * layout.columns + column;
                 if (minActivity && blockActivity(low, layout.halfWidth, row, column) < minActivity) continue;
 
                 for (let i = 0; i < BLOCK_VALUES; i++) {
@@ -487,151 +571,99 @@ export function extractImageWatermark(pixels, width, height, { stepMain = STEP_M
                     vote = (vote * 3 + second) / 4;
                 }
 
-                const slot = index % BLOCK_BITS;
+                const slot = tileSlot(row, column);
                 ones[slot] += vote;
                 counts[slot] += 1;
             }
         }
     }
 
-    return bitsToPayload(majorityBits(ones, counts));
+    return readTiledPayload(ones, counts);
 }
 
 /* ==========================================================================
-   頁面疊層水印（canvas 疊在畫面上）
+   文字用的隱形標記
    --------------------------------------------------------------------------
-   為什麼另一條路走不通：整頁疊圖時，底下是我們看不到的內容，低頻係數會被頁面
-   亮度整片蓋掉，所以標記不能寫在低頻。這裡改成寫在**中頻**係數對上：頁面平坦
-   的地方中頻幾乎沒有能量，只要解碼時只挑「沒有文字的低變異區塊」投票，α 很小
-   也解得出來（實測 α=0.05、畫面平均差 5/255 就看不出來，而截圖是 PNG 不失真）。
+   訊息文字裡插入零寬字元（看不見、不影響排版），把「使用者 ID 指紋 ＋ 裝置簽章」
+   藏進去。人類外流最省事的做法是複製貼上，那條路會把這些字元一起帶走，事後用
+   tools/watermark-decode.mjs 貼回去就能知道是誰。
 
-   已知限制：截圖被重新壓縮成 JPEG/WebP 之後就取不回（除非把透明度開大到看得
-   見）；裁切過的截圖靠相位搜尋救回一部分。
+   每個字元帶 2 bits，用四個零寬字元輪替；同一段文字會重複寫幾份，取出時逐位元
+   多數決。標記只在畫面渲染時插入，資料庫裡存的原字串不變。
    ========================================================================== */
 
-const OVERLAY_COEFF_A = 2 * BLOCK_SIDE + 1;
-const OVERLAY_COEFF_B = 1 * BLOCK_SIDE + 2;
-const OVERLAY_DELTA = 60;
-const OVERLAY_KEEP = 0.4;
+const TEXT_SYMBOLS = ["\u200b", "\u200c", "\u200d", "\u2060"];
+const TEXT_SYMBOL_INDEX = new Map(TEXT_SYMBOLS.map((char, index) => [char, index]));
 
-/** 把標記寫進一整層畫布（就地改寫）。標記振幅與畫布底色無關。 */
-export function embedOverlayWatermark(pixels, width, height, payload, { delta = OVERLAY_DELTA } = {}) {
+/*
+ * 標記放在「文字的結尾」，長訊息再多放一份在中段的空白／標點後面。
+ * 刻意不插在每個字元之間：那樣會讓「hello via button」這種相連字串都對不上，
+ * 瀏覽器搜尋、程式比對全部失效。放在句尾則完全看不到也不影響搜尋，
+ * 複製整段訊息時標記一定會跟著走。
+ */
+export function embedTextMark(text, payload) {
     const bits = payloadBits(payload);
-    if (!bits) return false;
+    const source = String(text ?? "");
+    const chars = Array.from(source);
+    if (!bits || chars.length === 0) return source;
 
-    const columns = Math.floor(width / BLOCK_SIDE);
-    const rows = Math.floor(height / BLOCK_SIDE);
-    if (columns * rows < BLOCK_BITS) return false;
+    const symbols = [];
+    for (let i = 0; i < BLOCK_BITS; i += 2) {
+        symbols.push(TEXT_SYMBOLS[bits[i] * 2 + bits[i + 1]]);
+    }
+    const block = symbols.join("");
 
-    const block = new Float64Array(BLOCK_VALUES);
-    const coeff = new Float64Array(BLOCK_VALUES);
-    const rebuilt = new Float64Array(BLOCK_VALUES);
-    let written = 0;
-
-    for (let row = 0; row < rows; row++) {
-        for (let column = 0; column < columns; column++) {
-            const originX = column * BLOCK_SIDE;
-            const originY = row * BLOCK_SIDE;
-            for (let i = 0; i < BLOCK_VALUES; i++) {
-                const at = ((originY + Math.floor(i / BLOCK_SIDE)) * width + originX + (i % BLOCK_SIDE)) * 4;
-                block[i] = 0.299 * pixels[at] + 0.587 * pixels[at + 1] + 0.114 * pixels[at + 2];
-            }
-
-            blockTransform(block, coeff, false);
-            const a = coeff[OVERLAY_COEFF_A];
-            const b = coeff[OVERLAY_COEFF_B];
-            const bit = bits[(row * columns + column) % BLOCK_BITS];
-
-            if (bit === 1 && Math.abs(a) < Math.abs(b) + delta) {
-                coeff[OVERLAY_COEFF_A] = Math.sign(a || 1) * (Math.abs(b) + delta);
-            } else if (bit === 0 && Math.abs(b) < Math.abs(a) + delta) {
-                coeff[OVERLAY_COEFF_B] = Math.sign(b || 1) * (Math.abs(a) + delta);
-            }
-
-            blockTransform(coeff, rebuilt, true);
-
-            for (let i = 0; i < BLOCK_VALUES; i++) {
-                const at = ((originY + Math.floor(i / BLOCK_SIDE)) * width + originX + (i % BLOCK_SIDE)) * 4;
-                const shifted = rebuilt[i] - block[i];
-                for (let channel = 0; channel < 3; channel++) {
-                    pixels[at + channel] = Math.max(0, Math.min(255, pixels[at + channel] + shifted));
-                }
-            }
-            written += 1;
-        }
+    /* 插入點：0 代表開頭，chars.length 代表結尾，其餘是某個字元之後 */
+    const breaks = [];
+    for (let i = 0; i < chars.length - 1; i += 1) {
+        if (/[\s、。，！？；：,.!?;:]/.test(chars[i])) breaks.push(i + 1);
     }
 
-    return written >= BLOCK_BITS;
+    const points = [chars.length];
+    if (chars.length > 240 && breaks.length > 0) points.push(breaks[Math.floor(breaks.length / 2)]);
+
+    const groups = new Map();
+    for (const point of points) {
+        groups.set(point, (groups.get(point) ?? "") + block);
+    }
+
+    let out = "";
+    for (let i = 0; i <= chars.length; i += 1) {
+        if (groups.has(i)) out += groups.get(i);
+        if (i < chars.length) out += chars[i];
+    }
+    return out;
 }
 
-/**
- * 從疊過水印的畫面（例如全螢幕截圖）取回標記。
- * 會試 16 種格線相位（截圖含有瀏覽器介面時會位移），
- * 只採計低變異區塊（有文字的區塊是雜訊），並試 256 種位元位移。
- * @returns {string} 標記字串；取不到就回空字串
- */
-export function extractOverlayWatermark(pixels, width, height, { keepRatio = OVERLAY_KEEP } = {}) {
-    const columns = Math.floor(width / BLOCK_SIDE);
-    const rows = Math.floor(height / BLOCK_SIDE);
-    if (columns * rows < BLOCK_BITS) return "";
+/** 從文字裡取回標記；取不到就回空字串 */
+export function extractTextMark(text) {
+    const values = [];
+    for (const char of Array.from(String(text ?? ""))) {
+        const index = TEXT_SYMBOL_INDEX.get(char);
+        if (index !== undefined) values.push(index);
+    }
 
-    const block = new Float64Array(BLOCK_VALUES);
-    const coeff = new Float64Array(BLOCK_VALUES);
+    const symbolsPerCopy = BLOCK_BITS / 2;
+    const copies = Math.floor(values.length / symbolsPerCopy);
+    if (copies === 0) return "";
 
-    for (let phaseY = 0; phaseY < BLOCK_SIDE; phaseY++) {
-        for (let phaseX = 0; phaseX < BLOCK_SIDE; phaseX++) {
-            const candidates = [];
-            for (let row = phaseY; row + BLOCK_SIDE <= height; row += BLOCK_SIDE) {
-                for (let column = phaseX; column + BLOCK_SIDE <= width; column += BLOCK_SIDE) {
-                    let sum = 0;
-                    for (let i = 0; i < BLOCK_VALUES; i++) {
-                        const at = ((row + Math.floor(i / BLOCK_SIDE)) * width + column + (i % BLOCK_SIDE)) * 4;
-                        block[i] = 0.299 * pixels[at] + 0.587 * pixels[at + 1] + 0.114 * pixels[at + 2];
-                        sum += block[i];
-                    }
-                    const mean = sum / BLOCK_VALUES;
-                    let variance = 0;
-                    for (let i = 0; i < BLOCK_VALUES; i++) variance += (block[i] - mean) ** 2;
-
-                    blockTransform(block, coeff, false);
-                    /* 比的是兩個中頻係數，DC（整塊亮度）不參與，所以頁面底色不影響判定 */
-                    const diff = Math.abs(coeff[OVERLAY_COEFF_A]) - Math.abs(coeff[OVERLAY_COEFF_B]);
-
-                    candidates.push({
-                        row: (row - phaseY) / BLOCK_SIDE,
-                        column: (column - phaseX) / BLOCK_SIDE,
-                        diff,
-                        activity: Math.sqrt(variance / BLOCK_VALUES),
-                    });
-                }
-            }
-
-            /* 只留起伏最小的一群：有文字或邊緣的區塊對標記來說是雜訊來源 */
-            candidates.sort((left, right) => left.activity - right.activity);
-            const usable = candidates.slice(0, Math.max(BLOCK_BITS, Math.floor(candidates.length * keepRatio)));
-
-            const ones = new Float64Array(BLOCK_BITS);
-            const counts = new Float64Array(BLOCK_BITS);
-            for (const item of usable) {
-                const slot = (item.row * columns + item.column) % BLOCK_BITS;
-                ones[slot] += item.diff > 0 ? 1 : 0;
-                counts[slot] += 1;
-            }
-
-            const bits = new Uint8Array(BLOCK_BITS);
-            for (let i = 0; i < BLOCK_BITS; i++) {
-                bits[i] = counts[i] > 0 && ones[i] * 2 > counts[i] ? 1 : 0;
-            }
-
-            /* 列位移會讓整串位元環狀平移，所以連位移一起試（驗證碼會擋掉錯的） */
-            for (let shift = 0; shift < BLOCK_BITS; shift++) {
-                const rotated = new Uint8Array(BLOCK_BITS);
-                for (let i = 0; i < BLOCK_BITS; i++) rotated[i] = bits[(i + shift) % BLOCK_BITS];
-                const payload = bitsToPayload(rotated);
-                if (payload) return payload;
-            }
+    const ones = new Float64Array(BLOCK_BITS);
+    const counts = new Float64Array(BLOCK_BITS);
+    for (let copy = 0; copy < copies; copy += 1) {
+        for (let i = 0; i < symbolsPerCopy; i += 1) {
+            const value = values[copy * symbolsPerCopy + i];
+            const first = value >> 1;
+            const second = value & 1;
+            ones[copy * 0 + 2 * i] += first;
+            counts[2 * i] += 1;
+            ones[2 * i + 1] += second;
+            counts[2 * i + 1] += 1;
         }
     }
 
-    return "";
+    const bits = new Uint8Array(BLOCK_BITS);
+    for (let i = 0; i < BLOCK_BITS; i += 1) {
+        bits[i] = counts[i] > 0 && ones[i] * 2 > counts[i] ? 1 : 0;
+    }
+    return bitsToPayload(bits);
 }
