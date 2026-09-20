@@ -6,16 +6,75 @@
     <title>ChatChat & 心情宇宙</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 隱藏捲軸 */
+        /* ================= 基礎設定與隱藏捲軸 ================= */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* 機密模式與浮水印 */
+        /* ================= 機密模式與浮水印 ================= */
         .secure-mode { user-select: none; -webkit-user-select: none; }
         .watermark { pointer-events: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: none; background-repeat: repeat; }
         .secure-mode .watermark { display: block; }
 
-        /* 心情宇宙背景：完美適應各種裝置螢幕 */
+        /* ================= 精緻像素風 UI (Hi-Bit Retro) ================= */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; } /* 保持字體清晰度以防粗糙 */
+        
+        /* 像素風格容器 */
+        .pixel-box {
+            background-color: #ffffff;
+            border: 3px solid #1f2937;
+            border-radius: 8px;
+            box-shadow: 6px 6px 0px 0px #1f2937;
+        }
+        /* 宇宙深色系像素容器 */
+        .pixel-box-dark {
+            background-color: #111827;
+            border: 3px solid #f3f4f6;
+            border-radius: 8px;
+            box-shadow: 6px 6px 0px 0px rgba(255,255,255,0.7);
+        }
+
+        /* 像素按鈕與真實按壓微互動 */
+        .pixel-btn {
+            border: 2px solid #1f2937;
+            box-shadow: 4px 4px 0px 0px #1f2937;
+            transition: all 0.1s ease;
+        }
+        .pixel-btn:active {
+            box-shadow: 0px 0px 0px 0px #1f2937;
+            transform: translate(4px, 4px);
+        }
+        
+        /* 聊天氣泡 */
+        .pixel-bubble-me {
+            background-color: #6366f1;
+            color: white;
+            border: 2px solid #1f2937;
+            box-shadow: 3px 3px 0px 0px #1f2937;
+        }
+        .pixel-bubble-other {
+            background-color: #ffffff;
+            color: #1f2937;
+            border: 2px solid #1f2937;
+            box-shadow: 3px 3px 0px 0px #1f2937;
+        }
+
+        /* 像素風頭像外框 */
+        .pixel-avatar {
+            border: 2px solid #1f2937;
+            border-radius: 6px;
+            background-color: white;
+            image-rendering: pixelated;
+        }
+
+        /* ================= 點陣背景與動畫 ================= */
+        /* 復古點陣背景 (大廳使用) */
+        .retro-grid-bg {
+            background-color: #f3f4f6;
+            background-image: radial-gradient(#d1d5db 2px, transparent 2px);
+            background-size: 24px 24px;
+        }
+
+        /* 宇宙背景 */
         .universe-bg {
             background-image: url('./universe.png');
             background-size: cover;
@@ -25,111 +84,163 @@
             background-color: #0f0f1a;
         }
         
-        /* 星點高質感呼吸閃爍動畫 */
-        @keyframes starPulse {
-            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px currentColor); }
-            50% { transform: scale(1.35); filter: drop-shadow(0 0 14px currentColor); }
+        /* 進場動畫 (彈跳感) */
+        .modal-enter { animation: pixelPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        @keyframes pixelPop {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
         }
-        .custom-star {
-            animation: starPulse 2.5s infinite ease-in-out;
+        
+        /* 訊息浮現 (快速俐落) */
+        .msg-enter { animation: slideUpStep 0.2s ease-out forwards; }
+        @keyframes slideUpStep {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 橘色回覆微光點的環繞排版 */
-        .reply-orbit {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 100%; height: 100%;
-            pointer-events: none;
+        /* 星星呼吸與浮動 */
+        @keyframes starPulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px currentColor); }
+            50% { transform: scale(1.3); filter: drop-shadow(0 0 12px currentColor); }
         }
+        .custom-star { animation: starPulse 2s infinite steps(4, end); }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(-50%, -50%); }
+            50% { transform: translate(-50%, calc(-50% - 6px)); }
+        }
+        .planet-float { animation: float 4s steps(4, end) infinite; }
+        
+        .reply-orbit { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; pointer-events: none; }
     </style>
 </head>
-<body class="bg-gray-100 h-screen font-sans text-gray-800 bg-cover bg-center overflow-hidden" id="main-body">
+<body class="retro-grid-bg text-gray-800 bg-cover bg-center overflow-hidden transition-colors duration-500" id="main-body">
 
     <!-- 浮水印層 -->
     <div class="watermark" id="watermark-layer"></div>
 
     <!-- ==================== 1. 入口大廳 ==================== -->
-    <div id="landing-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white z-50">
-        <h1 class="text-5xl font-bold mb-4 tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">歡迎來到你的專屬空間</h1>
-        <p class="text-gray-400 mb-12">選擇你要前往的地方</p>
-        <div class="flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-8">
-            <button onclick="switchScreen('setup-screen')" class="group relative px-8 py-12 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/10 backdrop-blur transition overflow-hidden">
-                <div class="text-4xl mb-4">💬</div>
-                <h2 class="text-2xl font-bold mb-2 group-hover:text-indigo-400 transition">ChatChat 聊天室</h2>
-                <p class="text-sm text-gray-400">建立專屬房間，即時加密對話</p>
-            </button>
-            <button onclick="enterUniverse()" class="group relative px-8 py-12 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/10 backdrop-blur transition overflow-hidden">
-                <div class="text-4xl mb-4">🌌</div>
-                <h2 class="text-2xl font-bold mb-2 group-hover:text-pink-400 transition">前往心情宇宙</h2>
-                <p class="text-sm text-gray-400">化作星點，分享與傾聽今日心事</p>
-            </button>
+    <div id="landing-screen" class="absolute inset-0 flex flex-col items-center justify-center z-50 px-6 backdrop-blur-[2px]">
+        <div class="pixel-box p-8 md:p-12 text-center max-w-2xl w-full mx-auto animate-[pixelPop_0.5s_ease-out]">
+            <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-widest text-indigo-600 drop-shadow-[3px_3px_0_rgba(31,41,55,1)] uppercase">專屬空間</h1>
+            <p class="text-gray-600 mb-10 font-bold tracking-widest border-b-2 border-dashed border-gray-300 pb-4">SELECT YOUR DESTINATION</p>
+            <div class="flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-8">
+                <button onclick="switchScreen('setup-screen')" class="flex-1 pixel-btn bg-white p-6 rounded-xl group relative overflow-hidden">
+                    <div class="text-5xl mb-4 transform group-hover:-translate-y-1 transition-transform">💬</div>
+                    <h2 class="text-xl font-bold mb-1 text-gray-800 uppercase">ChatChat</h2>
+                    <p class="text-xs text-gray-500 font-bold">建立房間 / 加密對話</p>
+                </button>
+                <button onclick="enterUniverse()" class="flex-1 pixel-btn bg-indigo-50 p-6 rounded-xl group relative overflow-hidden">
+                    <div class="text-5xl mb-4 transform group-hover:-translate-y-1 transition-transform">🌌</div>
+                    <h2 class="text-xl font-bold mb-1 text-indigo-700 uppercase">心情宇宙</h2>
+                    <p class="text-xs text-indigo-400 font-bold">化作星點 / 分享心事</p>
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- ==================== 2. 聊天室：建立/加入房間 ==================== -->
-    <div id="setup-screen" class="hidden absolute inset-0 flex items-center justify-center bg-gray-900/50 backdrop-blur z-40 p-4">
-        <div class="bg-white/95 p-8 rounded-xl shadow-lg w-full max-w-md relative">
-            <button onclick="switchScreen('landing-screen')" class="absolute top-4 left-4 text-gray-400 hover:text-gray-700">← 返回</button>
-            <h1 class="text-2xl font-bold mb-6 mt-4 text-center text-indigo-600">ChatChat</h1>
-            <div class="space-y-4">
-                <div><label class="block text-sm font-medium mb-1">房間號碼</label><input type="text" id="room-id" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"></div>
-                <div><label class="block text-sm font-medium mb-1">暱稱 (最多10字)</label><input type="text" id="nickname" maxlength="10" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"></div>
-                <div><label class="block text-sm font-medium mb-1">自訂頭像 (可選)</label><input type="file" id="avatar-input" accept="image/*" class="w-full text-sm text-gray-500 border rounded-lg p-1">
-                    <img id="avatar-preview" class="mt-2 w-16 h-16 rounded-full object-cover hidden border" /></div>
-                <div class="flex space-x-3 pt-4">
-                    <button id="btn-create" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition">建立</button>
-                    <button id="btn-join" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition">加入</button>
+    <!-- ==================== 2. 聊天室：登入/建立畫面 ==================== -->
+    <div id="setup-screen" class="hidden absolute inset-0 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm z-40 p-4">
+        <div class="pixel-box p-8 w-full max-w-md relative modal-enter bg-[#fefce8]">
+            <button onclick="switchScreen('landing-screen')" class="absolute top-4 left-4 text-gray-500 hover:text-gray-900 font-bold text-sm pixel-btn px-3 py-1 bg-white rounded-md">
+                ← 返回
+            </button>
+            <h1 class="text-3xl font-black mb-8 mt-6 text-center text-gray-800 drop-shadow-[2px_2px_0_rgba(167,139,250,1)] uppercase">ChatChat</h1>
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-black text-gray-700 mb-2 tracking-wider">房間號碼 (ROOM ID)</label>
+                    <input type="text" id="room-id" placeholder="輸入號碼..." class="w-full bg-white border-2 border-gray-800 rounded-md p-3 focus:bg-yellow-50 focus:outline-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] text-gray-800 font-bold">
+                </div>
+                <div>
+                    <label class="block text-sm font-black text-gray-700 mb-2 tracking-wider">暱稱 (PLAYER NAME)</label>
+                    <input type="text" id="nickname" maxlength="10" placeholder="最多10字..." class="w-full bg-white border-2 border-gray-800 rounded-md p-3 focus:bg-yellow-50 focus:outline-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] text-gray-800 font-bold">
+                </div>
+                <div>
+                    <label class="block text-sm font-black text-gray-700 mb-2 tracking-wider">自訂頭像 (AVATAR)</label>
+                    <input type="file" id="avatar-input" accept="image/*" class="w-full text-sm font-bold text-gray-500 file:mr-4 file:py-2 file:px-4 file:border-2 file:border-gray-800 file:rounded-md file:text-sm file:font-bold file:bg-gray-100 file:text-gray-800 cursor-pointer pixel-btn bg-white p-1 rounded-md">
+                    <img id="avatar-preview" class="mt-3 w-16 h-16 pixel-avatar object-cover hidden shadow-md" />
+                </div>
+                <div class="flex space-x-4 pt-6">
+                    <button id="btn-create" class="flex-1 bg-indigo-500 text-white font-black py-3 rounded-md pixel-btn text-lg tracking-widest">建立</button>
+                    <button id="btn-join" class="flex-1 bg-emerald-500 text-white font-black py-3 rounded-md pixel-btn text-lg tracking-widest">加入</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- ==================== 3. 聊天室：對話畫面 ==================== -->
-    <div id="chat-screen" class="hidden w-full h-full max-w-6xl mx-auto md:py-6 relative z-30">
-        <div class="bg-white/95 backdrop-blur shadow-xl flex flex-col md:flex-row h-full md:rounded-2xl overflow-hidden relative">
-            <!-- 側邊欄 -->
-            <div class="w-full md:w-64 bg-gray-50/90 border-r flex flex-col relative z-20">
-                <div class="p-4 border-b bg-indigo-50 flex flex-col space-y-2">
-                    <h2 class="font-bold text-indigo-800">房間: <span id="display-room-id"></span></h2>
-                    <div class="flex items-center space-x-2 text-sm">
-                        <button class="bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" onclick="document.getElementById('bg-input').click()">🖼️ 背景</button>
+    <div id="chat-screen" class="hidden absolute inset-0 md:p-6 z-30 flex items-center justify-center bg-gray-800/40 backdrop-blur-sm">
+        
+        <div class="w-full h-full md:max-w-6xl md:h-[90vh] pixel-box flex flex-col md:flex-row overflow-hidden relative modal-enter bg-gray-50">
+            
+            <!-- 側邊欄 (手機版預設收折) -->
+            <div class="w-full md:w-72 bg-white border-b-2 md:border-b-0 md:border-r-2 border-gray-800 flex flex-col z-20 flex-shrink-0">
+                <div class="p-4 md:p-5 flex justify-between items-center border-b-2 border-gray-800 bg-indigo-100">
+                    <h2 class="font-black text-gray-900 tracking-wider">房號: <span id="display-room-id" class="text-indigo-600 drop-shadow-[1px_1px_0_#fff]"></span></h2>
+                    <!-- 手機選單按鈕 -->
+                    <button class="md:hidden pixel-btn bg-white px-3 py-1.5 rounded-md text-sm font-bold" onclick="document.getElementById('mobile-sidebar-content').classList.toggle('hidden')">
+                        MENU ▼
+                    </button>
+                </div>
+
+                <div id="mobile-sidebar-content" class="hidden md:flex flex-col flex-1 h-auto max-h-[40vh] md:max-h-none overflow-hidden bg-white absolute md:relative top-[68px] md:top-0 left-0 w-full md:w-auto shadow-[0_10px_0_0_rgba(31,41,55,1)] md:shadow-none border-b-2 md:border-0 border-gray-800 z-50">
+                    
+                    <div class="p-4 border-b-2 border-gray-800 bg-gray-50">
+                        <button class="w-full pixel-btn bg-white font-bold text-gray-700 py-2 rounded-md flex justify-center items-center space-x-2" onclick="document.getElementById('bg-input').click()">
+                            <span>🖼️</span> <span>更換背景</span>
+                        </button>
                         <input type="file" id="bg-input" accept="image/*" class="hidden">
                     </div>
-                    <div id="host-controls" class="hidden mt-2 pt-2 border-t border-indigo-200">
-                        <label class="flex items-center space-x-2 text-sm font-semibold text-red-600 cursor-pointer">
-                            <input type="checkbox" id="secure-toggle" class="form-checkbox text-red-600">
+                    
+                    <!-- 房主專屬 -->
+                    <div id="host-controls" class="hidden p-4 border-b-2 border-gray-800 bg-red-100">
+                        <label class="flex items-center justify-between text-sm font-black text-red-700 cursor-pointer">
                             <span>🛡️ 防截圖模式</span>
+                            <input type="checkbox" id="secure-toggle" class="form-checkbox text-red-600 rounded-sm border-2 border-red-800 w-5 h-5 focus:ring-0">
                         </label>
                     </div>
-                </div>
-                <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar" id="members-list"></div>
-                <div class="p-4 border-t space-y-2">
-                    <button id="btn-leave" class="w-full bg-gray-200 py-2 rounded-lg hover:bg-gray-300">退出</button>
-                    <button id="btn-disband" class="hidden w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">解散房間</button>
+
+                    <div class="px-4 py-3 text-xs font-black text-gray-500 uppercase tracking-widest bg-gray-200 border-b-2 border-gray-800">PLAYERS</div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar bg-gray-50" id="members-list">
+                        <!-- 動態生成成員 -->
+                    </div>
+
+                    <div class="p-4 border-t-2 border-gray-800 bg-white space-y-3">
+                        <button id="btn-leave" class="w-full pixel-btn bg-gray-200 text-gray-800 font-black py-2.5 rounded-md tracking-wider">退出 EXIT</button>
+                        <button id="btn-disband" class="hidden w-full pixel-btn bg-red-500 text-white font-black py-2.5 rounded-md tracking-wider">解散 DISBAND</button>
+                    </div>
                 </div>
             </div>
 
             <!-- 聊天主區域 -->
-            <div class="flex-1 flex flex-col h-full relative z-20">
-                <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-gray-100/50" id="chat-messages"></div>
-                <div id="reply-preview" class="hidden bg-indigo-50 p-2 border-t text-sm flex justify-between items-center text-indigo-800">
-                    <span>回覆 <strong id="reply-to-name"></strong></span>
-                    <button onclick="window.cancelReply()" class="text-gray-500 hover:text-red-500 font-bold">✕</button>
+            <div class="flex-1 flex flex-col h-[calc(100%-68px)] md:h-full relative bg-gray-100/80">
+                <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar" id="chat-messages">
+                    <!-- 訊息氣泡 -->
                 </div>
-                <div class="p-4 bg-white/90 border-t flex items-center space-x-2">
-                    <button onclick="document.getElementById('chat-img-input').click()" class="p-2 text-gray-500 bg-gray-100 rounded-full">📷</button>
+                
+                <!-- 回覆預覽 -->
+                <div id="reply-preview" class="hidden bg-yellow-100 border-t-2 border-gray-800 p-3 text-sm flex justify-between items-center">
+                    <span class="text-gray-800 font-bold text-xs tracking-wider">REPLY: <strong id="reply-to-name" class="font-black text-indigo-700"></strong></span>
+                    <button onclick="window.cancelReply()" class="pixel-btn bg-white w-6 h-6 flex items-center justify-center rounded text-red-600 font-black text-xs leading-none">X</button>
+                </div>
+
+                <!-- 輸入區 -->
+                <div class="p-3 md:p-4 bg-white border-t-2 border-gray-800 flex items-end space-x-3">
+                    <button onclick="document.getElementById('chat-img-input').click()" class="pixel-btn bg-gray-200 text-gray-700 rounded-md p-3 flex-shrink-0">📷</button>
                     <input type="file" id="chat-img-input" accept="image/*" class="hidden">
-                    <input type="text" id="message-input" placeholder="輸入訊息... (@ 標記人)" class="flex-1 border rounded-full px-4 py-2">
-                    <button id="btn-send" class="bg-indigo-600 text-white px-6 py-2 rounded-full">發送</button>
+                    
+                    <textarea id="message-input" rows="1" placeholder="輸入訊息... (@ 標記)" class="flex-1 border-2 border-gray-800 bg-gray-50 rounded-md px-3 py-3 focus:bg-white focus:outline-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] font-bold text-gray-800 resize-none no-scrollbar" style="min-height: 52px; max-height: 120px;"></textarea>
+                    
+                    <button id="btn-send" class="pixel-btn bg-indigo-600 text-white font-black px-5 py-3 rounded-md flex-shrink-0 tracking-wider">SEND</button>
                 </div>
             </div>
             
-            <!-- 星星選單 -->
-            <div id="star-menu" class="hidden absolute bg-white shadow-xl border rounded-lg p-2 flex space-x-2 z-50">
-                <button class="hover:bg-gray-100 p-1" onclick="window.addReaction('👍')">👍</button>
-                <button class="hover:bg-gray-100 p-1" onclick="window.addReaction('❤️')">❤️</button>
-                <div class="w-px bg-gray-300 mx-1"></div>
-                <button class="hover:bg-gray-100 p-1 px-2 text-sm text-indigo-600" onclick="window.triggerReply()">回覆</button>
+            <!-- 星星表情選單 (方塊選單) -->
+            <div id="star-menu" class="hidden absolute bg-white border-2 border-gray-800 shadow-[4px_4px_0_0_#1f2937] rounded-md p-1.5 flex items-center space-x-1 z-50 transform transition-all duration-100 origin-bottom scale-95 opacity-0">
+                <button class="pixel-btn bg-gray-100 p-2 rounded text-lg" onclick="window.addReaction('👍')">👍</button>
+                <button class="pixel-btn bg-gray-100 p-2 rounded text-lg" onclick="window.addReaction('❤️')">❤️</button>
+                <div class="w-px h-6 bg-gray-800 mx-1"></div>
+                <button class="pixel-btn bg-indigo-100 px-3 py-2 rounded text-xs font-black text-indigo-700" onclick="window.triggerReply()">REPLY</button>
             </div>
         </div>
     </div>
@@ -137,73 +248,72 @@
     <!-- ==================== 4. 心情宇宙畫面 ==================== -->
     <div id="universe-screen" class="hidden absolute inset-0 universe-bg z-30">
         
-        <!-- 優化後的返回按鈕 -->
-        <button onclick="switchScreen('landing-screen')" class="absolute top-6 left-6 flex items-center space-x-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/25 px-5 py-2.5 border border-white/20 rounded-full backdrop-blur-md shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] transition-all duration-300 z-50 font-medium tracking-wider">
-            <span class="text-lg leading-none">←</span>
-            <span>離開宇宙</span>
+        <!-- 返回按鈕 (深色像素框) -->
+        <button onclick="switchScreen('landing-screen')" class="absolute top-6 left-4 md:left-6 pixel-box-dark text-white font-bold px-4 py-2 text-sm z-50 pixel-btn bg-gray-900 flex items-center space-x-2 tracking-widest uppercase">
+            <span>←</span><span>LEAVE</span>
         </button>
         
-        <!-- 說明面板 -->
-        <div class="absolute bottom-6 left-6 text-white/70 text-xs md:text-sm bg-black/40 p-4 rounded-xl backdrop-blur z-40 pointer-events-none border border-white/10">
-            <h3 class="font-bold text-white mb-2">宇宙導覽</h3>
-            <ul class="space-y-1">
-                <li><span class="inline-block w-3 h-3 rounded-full bg-[#fde047] mr-2 shadow-[0_0_8px_rgba(253,224,71,0.8)]"></span>開心 - 點擊星球分享 +</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-[#9ca3af] mr-2 shadow-[0_0_8px_rgba(156,163,175,0.8)]"></span>無聊</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-[#ef4444] mr-2 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>憤怒</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-[#f472b6] mr-2 shadow-[0_0_8px_rgba(244,114,182,0.8)]"></span>心動</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-[#60a5fa] mr-2 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></span>難過</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-[#ffffff] mr-2 shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>其他</li>
-                <li class="pt-2 text-orange-400 font-medium">※ 橘色微光代表其他旅人的回覆</li>
-            </ul>
+        <!-- 說明面板 (深色像素框) -->
+        <div class="absolute bottom-6 left-4 right-4 md:right-auto md:left-6 text-white text-xs md:text-sm pixel-box-dark bg-gray-900/90 md:max-w-xs p-4 rounded-md z-40 pointer-events-none">
+            <h3 class="font-black text-gray-200 mb-3 tracking-widest border-b-2 border-gray-700 pb-2 uppercase">Guide</h3>
+            <div class="grid grid-cols-2 md:grid-cols-1 gap-3 font-bold text-gray-300">
+                <div class="flex items-center"><span class="w-3 h-3 border border-white bg-[#fde047] mr-3 shadow-[0_0_8px_rgba(253,224,71,1)]"></span>開心 (點擊星球)</div>
+                <div class="flex items-center"><span class="w-3 h-3 border border-white bg-[#9ca3af] mr-3 shadow-[0_0_8px_rgba(156,163,175,1)]"></span>無聊</div>
+                <div class="flex items-center"><span class="w-3 h-3 border border-white bg-[#ef4444] mr-3 shadow-[0_0_8px_rgba(239,68,68,1)]"></span>憤怒</div>
+                <div class="flex items-center"><span class="w-3 h-3 border border-white bg-[#f472b6] mr-3 shadow-[0_0_8px_rgba(244,114,182,1)]"></span>心動</div>
+                <div class="flex items-center"><span class="w-3 h-3 border border-white bg-[#60a5fa] mr-3 shadow-[0_0_8px_rgba(96,165,250,1)]"></span>難過</div>
+                <div class="flex items-center"><span class="w-3 h-3 border border-white bg-[#ffffff] mr-3 shadow-[0_0_8px_rgba(255,255,255,1)]"></span>其他</div>
+            </div>
+            <div class="pt-3 mt-3 border-t-2 border-gray-700 text-orange-400 font-black text-xs">※ 橘色微光 = 宇宙迴響</div>
         </div>
 
-        <!-- 星球容器 -->
+        <!-- 星球與星點容器 -->
         <div id="planets-container" class="relative w-full h-full"></div>
-        
-        <!-- 光點(心事)容器 -->
         <div id="stars-container" class="absolute inset-0"></div>
     </div>
 
-    <!-- 宇宙：發文 Modal -->
-    <div id="universe-post-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur z-50 flex items-center justify-center p-4">
-        <div class="bg-gray-800 text-white p-6 rounded-2xl shadow-2xl w-full max-w-md border border-white/10">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="u-post-title" class="text-xl font-bold">留下你的心事...</h2>
-                <button onclick="closeUniverseModals()" class="text-gray-400 hover:text-white">✕</button>
+    <!-- 宇宙：發文 Modal (深色RPG對話框) -->
+    <div id="universe-post-modal" class="hidden absolute inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
+        <div class="pixel-box-dark bg-gray-900 text-white p-6 md:p-8 w-full max-w-md modal-enter">
+            <div class="flex justify-between items-center mb-6 border-b-2 border-gray-700 pb-3">
+                <h2 id="u-post-title" class="text-xl font-black tracking-widest uppercase text-gray-100">留下心事</h2>
+                <button onclick="closeUniverseModals()" class="pixel-btn bg-gray-800 text-white w-8 h-8 flex items-center justify-center font-black rounded">X</button>
             </div>
             <div class="space-y-4">
-                <textarea id="u-post-text" rows="4" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" placeholder="今天發生了什麼事呢？"></textarea>
-                <div class="flex space-x-2">
-                    <input type="text" id="u-post-nickname" placeholder="暱稱" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-sm">
+                <textarea id="u-post-text" rows="4" class="w-full bg-gray-800 border-2 border-gray-500 rounded-md p-4 text-white focus:outline-none focus:border-gray-300 transition-colors resize-none font-bold shadow-inner" placeholder="今天發生了什麼事呢？"></textarea>
+                <div>
+                    <input type="text" id="u-post-nickname" placeholder="你的暱稱 (選填)" class="w-full bg-gray-800 border-2 border-gray-500 rounded-md p-3 text-white text-sm focus:outline-none focus:border-gray-300 font-bold shadow-inner">
                 </div>
-                <button id="btn-u-submit" class="w-full bg-white text-black font-bold py-2 rounded-lg hover:bg-gray-200 transition shadow-[0_0_15px_rgba(255,255,255,0.5)]">化為星點發送</button>
+                <button id="btn-u-submit" class="w-full pixel-btn bg-gray-100 text-gray-900 font-black py-3.5 rounded-md tracking-widest mt-2 uppercase">發送 POST</button>
             </div>
         </div>
     </div>
 
-    <!-- 宇宙：閱讀/回覆 Modal -->
-    <div id="universe-read-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur z-50 flex items-center justify-center p-4">
-        <div class="bg-gray-800 text-white rounded-2xl shadow-2xl w-full max-w-md border border-white/10 flex flex-col h-[70vh]">
-            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50 rounded-t-2xl">
+    <!-- 宇宙：閱讀/回覆 Modal (深色RPG對話框) -->
+    <div id="universe-read-modal" class="hidden absolute inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 py-10 md:p-4">
+        <div class="pixel-box-dark bg-gray-900 text-white w-full max-w-lg flex flex-col h-full max-h-[85vh] modal-enter relative overflow-hidden">
+            
+            <!-- Header -->
+            <div class="p-4 border-b-2 border-gray-700 flex justify-between items-center bg-gray-800 shrink-0">
                 <div class="flex items-center space-x-3">
-                    <img id="u-read-avatar" class="w-10 h-10 rounded-full border border-gray-600 bg-gray-700">
+                    <img id="u-read-avatar" class="w-10 h-10 rounded-md border-2 border-gray-500 object-cover bg-black pixel-avatar">
                     <div>
-                        <div id="u-read-name" class="font-bold text-sm"></div>
-                        <div id="u-read-time" class="text-xs text-gray-400"></div>
+                        <div id="u-read-name" class="font-black text-sm md:text-base tracking-wide text-gray-100"></div>
+                        <div id="u-read-time" class="text-[10px] text-gray-400 font-bold uppercase tracking-wider"></div>
                     </div>
                 </div>
-                <button onclick="closeUniverseModals()" class="text-gray-400 hover:text-white">✕</button>
+                <button onclick="closeUniverseModals()" class="pixel-btn bg-gray-700 text-white w-8 h-8 flex items-center justify-center font-black rounded">X</button>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-                <!-- 主文 -->
-                <p id="u-read-text" class="text-lg leading-relaxed"></p>
+            <!-- 內容區 -->
+            <div class="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 md:space-y-8 no-scrollbar bg-gray-900">
+                <p id="u-read-text" class="text-base md:text-lg leading-loose text-gray-200 font-bold tracking-wide"></p>
                 
-                <!-- 分隔線 -->
-                <div class="flex items-center text-xs text-gray-500">
-                    <div class="flex-1 border-t border-gray-700"></div>
-                    <span class="px-2">宇宙迴響</span>
-                    <div class="flex-1 border-t border-gray-700"></div>
+                <!-- 迴響分隔線 -->
+                <div class="flex items-center text-xs font-black text-gray-500 pt-2 uppercase tracking-widest">
+                    <div class="flex-1 border-t-2 border-gray-700"></div>
+                    <span class="px-3">REPLIES</span>
+                    <div class="flex-1 border-t-2 border-gray-700"></div>
                 </div>
 
                 <!-- 回覆列表 -->
@@ -211,9 +321,9 @@
             </div>
 
             <!-- 回覆輸入區 -->
-            <div class="p-4 border-t border-gray-700 bg-gray-900/50 rounded-b-2xl flex space-x-2">
-                <input type="text" id="u-reply-input" placeholder="給予回應..." class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-400">
-                <button id="btn-u-reply" class="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-orange-600">回覆</button>
+            <div class="p-4 border-t-2 border-gray-700 bg-gray-800 shrink-0 flex space-x-3 items-end">
+                <textarea id="u-reply-input" rows="1" placeholder="給予回應..." class="flex-1 bg-gray-900 border-2 border-gray-600 rounded-md px-3 py-2.5 text-white text-sm focus:outline-none focus:border-orange-400 font-bold resize-none no-scrollbar shadow-inner" style="min-height: 44px; max-height: 100px;"></textarea>
+                <button id="btn-u-reply" class="pixel-btn bg-orange-500 text-white px-4 py-2.5 rounded-md font-black flex-shrink-0 tracking-wider">回覆</button>
             </div>
         </div>
     </div>
@@ -253,6 +363,16 @@
             }
         };
 
+        // Textarea 自動適應高度 (Chat & Universe)
+        const autoResizeTextarea = (el) => {
+            el.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight + 2) + 'px';
+            });
+        };
+        autoResizeTextarea(document.getElementById('message-input'));
+        autoResizeTextarea(document.getElementById('u-reply-input'));
+
         // ====================================================
         //                 PART A: 聊天室邏輯 
         // ====================================================
@@ -289,7 +409,7 @@
             });
         });
         document.getElementById('bg-input').addEventListener('change', (e) => {
-            processImage(e.target.files[0], (b64) => { document.getElementById('main-body').style.backgroundImage = `url(${b64})`; });
+            processImage(e.target.files[0], (b64) => { document.getElementById('chat-screen').style.backgroundImage = `url(${b64})`; document.getElementById('chat-screen').style.backgroundSize = 'cover'; document.getElementById('chat-screen').style.backgroundPosition = 'center'; });
         });
 
         document.getElementById('btn-create').addEventListener('click', () => initRoom(true));
@@ -301,8 +421,8 @@
             if (!roomId) return alert("請輸入房間號碼");
 
             const snap = await get(ref(db, `rooms/${roomId}`));
-            if (isCreate && snap.exists()) return alert("房間已存在");
-            if (!isCreate && !snap.exists()) return alert("房間不存在");
+            if (isCreate && snap.exists()) return alert("此房間已存在，請使用加入功能或更換房號。");
+            if (!isCreate && !snap.exists()) return alert("找不到此房間，請確認房號。");
 
             currentRoomId = roomId;
             if (isCreate) await set(ref(db, `rooms/${roomId}/host`), myUserId);
@@ -330,8 +450,8 @@
 
             onValue(ref(db, `rooms/${currentRoomId}/members`), async (snap) => {
                 const members = snap.val();
-                if (!members) { alert("房間已被解散或關閉！"); return window.location.reload(); }
-                if (!members[myUserId]) { alert("你已離開或被踢出房間"); return window.location.reload(); }
+                if (!members) { alert("房間已被解散！"); return window.location.reload(); }
+                if (!members[myUserId]) { alert("你已被踢出房間！"); return window.location.reload(); }
 
                 const hostSnap = await get(ref(db, `rooms/${currentRoomId}/host`));
                 let currentHost = hostSnap.val();
@@ -357,15 +477,15 @@
                 for (let uid in members) {
                     const mem = members[uid];
                     list.innerHTML += `
-                        <div class="flex items-center justify-between bg-white p-2 rounded-lg border">
-                            <div class="flex items-center space-x-2">
-                                <img src="${mem.avatar}" class="w-8 h-8 rounded-full border object-cover">
+                        <div class="flex items-center justify-between bg-white border-2 border-gray-800 p-2.5 rounded-md shadow-[2px_2px_0_#1f2937]">
+                            <div class="flex items-center space-x-3">
+                                <img src="${mem.avatar}" class="w-8 h-8 rounded pixel-avatar object-cover bg-gray-100 shrink-0">
                                 <div>
-                                    <p class="text-sm font-medium">${mem.name}${uid===myUserId ? '(你)' : ''}</p>
-                                    ${uid===currentHost ? '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded">房主</span>' : ''}
+                                    <p class="text-sm font-black text-gray-800">${mem.name}${uid===myUserId ? '<span class="text-gray-400 font-bold">(你)</span>' : ''}</p>
+                                    ${uid===currentHost ? '<span class="inline-block mt-0.5 text-[9px] bg-indigo-200 text-indigo-800 font-black px-1.5 py-0.5 rounded border border-indigo-800">HOST</span>' : ''}
                                 </div>
                             </div>
-                            ${(isHost && uid!==myUserId) ? `<button class="text-xs text-red-500" onclick="window.kick('${uid}')">踢出</button>` : ''}
+                            ${(isHost && uid!==myUserId) ? `<button class="text-xs font-black text-white pixel-btn bg-red-500 px-2 py-1 rounded" onclick="window.kick('${uid}')">踢出</button>` : ''}
                         </div>`;
                 }
             });
@@ -376,29 +496,39 @@
 
         function renderMessage(msgId, msg) {
             const isMe = msg.sender === myUserId;
-            let formattedText = msg.text ? msg.text.replace(/@(\S+)/g, '<span class="text-blue-600 font-bold bg-blue-100 px-1 rounded">@$1</span>') : '';
+            let formattedText = msg.text ? msg.text.replace(/@(\S+)/g, '<span class="text-indigo-800 font-black bg-indigo-200 px-1 border border-indigo-800 rounded-sm">@$1</span>') : '';
+            if (formattedText) formattedText = formattedText.replace(/\n/g, '<br>');
 
             const msgDiv = document.createElement('div');
-            msgDiv.className = `flex items-end space-x-2 relative group ${isMe ? 'justify-end' : ''}`;
+            msgDiv.className = `msg-enter flex items-end space-x-2.5 relative group ${isMe ? 'justify-end' : ''}`;
             
             let html = '';
-            if (!isMe) html += `<img src="${msg.avatar}" class="w-8 h-8 rounded-full border object-cover">`;
+            if (!isMe) html += `<img src="${msg.avatar}" class="w-9 h-9 rounded-md pixel-avatar object-cover shrink-0">`;
             
-            html += `<div class="max-w-[75%] relative">`;
-            if (!isMe) html += `<p class="text-xs text-gray-500 mb-1 ml-1">${msg.name}</p>`;
-            if (msg.replyTo) html += `<div class="bg-black/5 text-xs p-1.5 rounded-t-xl border-l-4 border-indigo-400 mb-[-5px] pb-2 text-gray-600 truncate">回覆 ${msg.replyTo.name}:${msg.replyTo.text || '圖片'}</div>`;
-
-            html += `<div class="px-4 py-2 rounded-2xl shadow-sm break-words relative z-10 ${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}">`;
-            if (msg.image) html += `<img src="${msg.image}" class="max-w-full rounded-lg mb-1 cursor-pointer" onclick="window.open('${msg.image}')">`;
-            if (formattedText) html += `<span>${formattedText}</span>`;
+            html += `<div class="max-w-[78%] md:max-w-[70%] relative flex flex-col ${isMe ? 'items-end' : 'items-start'}">`;
+            if (!isMe) html += `<p class="text-[10px] font-black text-gray-500 mb-1 ml-1 tracking-widest uppercase">${msg.name}</p>`;
             
-            html += `</div><div id="reactions-${msgId}" class="flex flex-wrap gap-1 mt-1 z-20 relative"></div></div>`;
+            if (msg.replyTo) html += `<div class="bg-yellow-100 text-[11px] p-2 rounded-t-md border-2 border-b-0 border-gray-800 mb-[-2px] pb-2 text-gray-700 truncate max-w-full font-bold shadow-[3px_0_0_#1f2937]"><span class="font-black text-indigo-700">REPLY ${msg.replyTo.name}:</span>${msg.replyTo.text || '[圖片]'}</div>`;
 
-            const starBtn = `<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-yellow-500 transition px-2 pb-4 text-xl" onclick="window.showStarMenu(event, '${msgId}', '${msg.name}', \`${msg.text ? msg.text.replace(/`/g, "'") : '[圖片]'}\`)">⭐</button>`;
-            msgDiv.innerHTML = isMe ? starBtn + html : html + starBtn;
+            const bubbleClass = isMe ? 'pixel-bubble-me rounded-xl rounded-br-sm' : 'pixel-bubble-other rounded-xl rounded-bl-sm';
+            html += `<div class="px-4 py-2.5 break-words relative z-10 ${bubbleClass}">`;
+            
+            if (msg.image) html += `<img src="${msg.image}" class="max-w-full rounded mb-1.5 cursor-pointer hover:opacity-90 transition-opacity border-2 border-gray-800 pixel-avatar" onclick="window.open('${msg.image}')">`;
+            if (formattedText) html += `<span class="leading-relaxed font-bold">${formattedText}</span>`;
+            
+            html += `</div><div id="reactions-${msgId}" class="flex flex-wrap gap-1 mt-1.5 z-20 relative"></div></div>`;
+
+            // 星星按鈕
+            const starBtn = `<button class="opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 text-gray-400 hover:text-yellow-500 px-2 pb-4 text-xl font-bold" onclick="window.showStarMenu(event, '${msgId}', '${msg.name}', \`${msg.text ? msg.text.replace(/`/g, "'").replace(/\n/g, " ") : '[圖片]'}\`)">★</button>`;
+            const mobileStarBtn = starBtn.replace('opacity-0', 'opacity-50 md:opacity-0');
+
+            msgDiv.innerHTML = isMe ? mobileStarBtn + html : html + mobileStarBtn;
 
             chatMessages.appendChild(msgDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            setTimeout(() => {
+                chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+            }, 50);
             updateMessageReactions(msgId, msg); 
         }
 
@@ -408,7 +538,7 @@
             if (!msg.reactions) return;
             for (const [emoji, users] of Object.entries(msg.reactions)) {
                 const count = Object.keys(users).length;
-                if (count > 0) container.innerHTML += `<span class="text-xs bg-white border px-1.5 py-0.5 rounded-full shadow-sm cursor-pointer" onclick="window.addReaction('${emoji}', '${msgId}')">${emoji} ${count}</span>`;
+                if (count > 0) container.innerHTML += `<span class="text-xs bg-white border-2 border-gray-800 px-1.5 py-0.5 rounded-sm shadow-[1px_1px_0_#1f2937] cursor-pointer hover:bg-yellow-50 active:translate-y-[1px] active:shadow-none transition-all flex items-center font-black text-gray-700" onclick="window.addReaction('${emoji}', '${msgId}')">${emoji} <span class="ml-1">${count}</span></span>`;
             }
         }
 
@@ -421,18 +551,38 @@
             if (replyingTo) { payload.replyTo = replyingTo; window.cancelReply(); }
             push(ref(db, `rooms/${currentRoomId}/messages`), payload);
             messageInput.value = '';
+            messageInput.style.height = 'auto';
         }
 
         document.getElementById('btn-send').addEventListener('click', () => sendChatMessage());
-        messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+        messageInput.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+        });
         document.getElementById('chat-img-input').addEventListener('change', (e) => { processImage(e.target.files[0], (b) => { sendChatMessage(b); e.target.value = ''; }); });
 
         window.showStarMenu = (e, msgId, name, text) => {
             currentSelectedMsgId = msgId; replyingTo = { id: msgId, name, text }; 
             const rect = e.target.getBoundingClientRect();
-            starMenu.style.left = `${rect.left}px`; starMenu.style.top = `${rect.top - 40}px`;
+            let leftPos = rect.left;
+            if (leftPos + 180 > window.innerWidth) leftPos = window.innerWidth - 190;
+            
+            starMenu.style.left = `${leftPos}px`; 
+            starMenu.style.top = `${rect.top - 45}px`;
+            
             starMenu.classList.remove('hidden');
-            setTimeout(() => { document.addEventListener('click', function close() { starMenu.classList.add('hidden'); document.removeEventListener('click', close); }); }, 10);
+            setTimeout(() => { 
+                starMenu.classList.remove('scale-95', 'opacity-0'); 
+                starMenu.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            setTimeout(() => { 
+                document.addEventListener('click', function close() { 
+                    starMenu.classList.remove('scale-100', 'opacity-100'); 
+                    starMenu.classList.add('scale-95', 'opacity-0');
+                    setTimeout(() => starMenu.classList.add('hidden'), 150);
+                    document.removeEventListener('click', close); 
+                }); 
+            }, 10);
         };
         window.triggerReply = () => { document.getElementById('reply-preview').classList.remove('hidden'); document.getElementById('reply-to-name').innerText = replyingTo.name; messageInput.focus(); };
         window.cancelReply = () => { replyingTo = null; document.getElementById('reply-preview').classList.add('hidden'); };
@@ -444,15 +594,15 @@
             if (snap.exists()) await remove(reactRef); else await set(reactRef, true);
         };
 
-        window.kick = async (uid) => { if (confirm("確定踢出？")) await remove(ref(db, `rooms/${currentRoomId}/members/${uid}`)); };
-        document.getElementById('btn-disband').onclick = async () => { if(confirm("解散房間將清除所有對話！")) await remove(ref(db, `rooms/${currentRoomId}`)); };
+        window.kick = async (uid) => { if (confirm("確定踢出這位成員嗎？")) await remove(ref(db, `rooms/${currentRoomId}/members/${uid}`)); };
+        document.getElementById('btn-disband').onclick = async () => { if(confirm("解散房間將清除所有對話，確定執行？")) await remove(ref(db, `rooms/${currentRoomId}`)); };
         document.getElementById('btn-leave').onclick = async () => { await remove(ref(db, `rooms/${currentRoomId}/members/${myUserId}`)); window.location.reload(); };
 
         document.addEventListener('contextmenu', e => { if (document.body.classList.contains('secure-mode')) e.preventDefault(); });
         document.addEventListener('keyup', (e) => {
             if (document.body.classList.contains('secure-mode') && e.key === 'PrintScreen') {
-                navigator.clipboard.writeText(`[系統警告] 此為機密聊天室，禁止截圖。觸發者：${myNickname} (${myUserId})`);
-                alert('⚠️ 系統已記錄您的截圖嘗試行為！');
+                navigator.clipboard.writeText(`[警告] 機密聊天室禁止截圖。觸發者：${myNickname}`);
+                alert('⚠️ 系統已記錄截圖嘗試行為！');
             }
         });
 
@@ -488,19 +638,20 @@
             container.innerHTML = '';
             for (const [key, p] of Object.entries(PLANETS)) {
                 const planetDiv = document.createElement('div');
-                planetDiv.className = `absolute cursor-pointer flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform duration-300 z-10`;
+                planetDiv.className = `absolute cursor-pointer flex flex-col items-center justify-center planet-float z-10`;
                 planetDiv.style.top = `${p.top}%`;
                 planetDiv.style.left = `${p.left}%`;
+                planetDiv.style.animationDelay = `${Math.random() * 2}s`;
                 planetDiv.onclick = () => openUniversePostModal(key);
                 
                 planetDiv.innerHTML = `
-                    <div class="relative group">
-                        <img src="${p.img}" alt="${p.name}" class="w-32 h-32 object-contain" style="image-rendering: pixelated; filter: drop-shadow(0 0 15px ${p.glow});">
-                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <span class="text-white text-5xl font-bold drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">+</span>
+                    <div class="relative group transform transition-transform duration-200 hover:scale-110">
+                        <img src="${p.img}" alt="${p.name}" class="w-24 h-24 md:w-32 md:h-32 object-contain" style="image-rendering: pixelated; filter: drop-shadow(0 0 10px ${p.glow});">
+                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span class="text-white text-5xl font-black drop-shadow-[2px_2px_0_#000]">+</span>
                         </div>
                     </div>
-                    <span class="mt-2 text-white/90 text-sm font-bold tracking-widest drop-shadow-lg">${p.name}</span>
+                    <span class="mt-2 text-white text-xs font-black tracking-widest px-2 py-0.5 border-2 border-white bg-black/50 opacity-80 group-hover:opacity-100">${p.name}</span>
                 `;
                 container.appendChild(planetDiv);
             }
@@ -527,13 +678,15 @@
 
             const starDiv = document.createElement('div');
             starDiv.id = `ustar-${postId}`;
-            starDiv.className = `absolute cursor-pointer custom-star z-20 flex items-center justify-center`;
+            starDiv.className = `absolute cursor-pointer custom-star z-20 flex items-center justify-center hover:scale-150 transition-transform`;
             starDiv.style.top = `calc(${p.top}% + ${data.offsetY}vh)`;
             starDiv.style.left = `calc(${p.left}% + ${data.offsetX}vw)`;
+            starDiv.style.animationDelay = `${Math.random() * 2}s`;
             
+            // 像素方塊感的核心光點
             starDiv.innerHTML = `
-                <div class="absolute w-5 h-5 rounded-full opacity-35 blur-[2px]" style="background-color: ${p.color};"></div>
-                <div class="relative w-3.5 h-3.5 rounded-full shadow-md" style="background-color: ${p.color}; box-shadow: 0 0 12px ${p.color}, 0 0 20px #fff;"></div>
+                <div class="absolute w-4 h-4 rounded-sm opacity-50 blur-[2px]" style="background-color: ${p.color};"></div>
+                <div class="relative w-3 h-3 rounded-sm border border-black/20" style="background-color: ${p.color}; box-shadow: 0 0 8px ${p.color}, 0 0 12px #fff;"></div>
             `;
             
             starDiv.onclick = () => openUniverseReadModal(postId, data);
@@ -555,7 +708,7 @@
 
             const replies = Object.values(data.replies);
             const count = replies.length;
-            const radius = 18; 
+            const radius = window.innerWidth < 768 ? 14 : 18;
 
             replies.forEach((reply, index) => {
                 const angle = (index / count) * Math.PI * 2;
@@ -563,9 +716,9 @@
                 const y = Math.sin(angle) * radius;
 
                 const dot = document.createElement('div');
-                dot.className = 'absolute w-2 h-2 bg-orange-400 rounded-full shadow-[0_0_8px_#fb923c]';
-                dot.style.top = `calc(50% + ${y}px - 4px)`; 
-                dot.style.left = `calc(50% + ${x}px - 4px)`;
+                dot.className = 'absolute w-1.5 h-1.5 bg-orange-400 border border-orange-200 shadow-[0_0_6px_#fb923c]'; // 方形迴響點
+                dot.style.top = `calc(50% + ${y}px - 3px)`; 
+                dot.style.left = `calc(50% + ${x}px - 3px)`;
                 container.appendChild(dot);
             });
 
@@ -576,9 +729,10 @@
 
         window.openUniversePostModal = (emotion) => {
             currentTargetEmotion = emotion;
-            document.getElementById('u-post-title').innerText = `為「${PLANETS[emotion].name}」留下一顆星...`;
+            document.getElementById('u-post-title').innerText = `為「${PLANETS[emotion].name}」留星`;
             document.getElementById('u-post-nickname').value = myNickname || '';
             document.getElementById('u-post-text').value = '';
+            document.getElementById('u-post-text').style.height = '100px';
             document.getElementById('universe-post-modal').classList.remove('hidden');
         };
 
@@ -590,7 +744,7 @@
             myNickname = name;
 
             const angle = Math.random() * Math.PI * 2;
-            const distance = 8 + Math.random() * 12; 
+            const distance = (window.innerWidth < 768 ? 12 : 8) + Math.random() * 15;
             const offsetX = Math.cos(angle) * distance;
             const offsetY = Math.sin(angle) * distance;
 
@@ -613,9 +767,11 @@
             document.getElementById('u-read-avatar').src = data.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=anonymous';
             document.getElementById('u-read-name').innerText = data.name;
             document.getElementById('u-read-time').innerText = new Date(data.timestamp).toLocaleString();
-            document.getElementById('u-read-text').innerText = data.text;
+            
+            document.getElementById('u-read-text').innerHTML = data.text.replace(/\n/g, '<br>');
             
             document.getElementById('u-reply-input').value = '';
+            document.getElementById('u-reply-input').style.height = '44px';
             
             renderRepliesList(data.replies ? Object.values(data.replies) : []);
             document.getElementById('universe-read-modal').classList.remove('hidden');
@@ -625,33 +781,37 @@
             const list = document.getElementById('u-replies-list');
             list.innerHTML = '';
             if (repliesArray.length === 0) {
-                list.innerHTML = '<p class="text-center text-sm text-gray-500 py-4">目前還沒有迴響，成為第一個給予溫暖的人吧。</p>';
+                list.innerHTML = '<p class="text-center text-sm text-gray-500 py-6 font-black tracking-widest uppercase">目前沒有迴響 NO REPLIES YET.</p>';
                 return;
             }
 
-            repliesArray.sort((a, b) => a.timestamp - b.timestamp).forEach(reply => {
+            repliesArray.sort((a, b) => a.timestamp - b.timestamp).forEach((reply, index) => {
+                const delay = index * 0.05;
                 list.innerHTML += `
-                    <div class="flex space-x-3 bg-gray-900/50 p-3 rounded-xl border border-gray-700/50">
-                        <img src="${reply.avatar}" class="w-8 h-8 rounded-full border border-orange-400/50">
-                        <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="font-bold text-sm text-orange-200">${reply.name}</span>
-                                <span class="text-[10px] text-gray-500">${new Date(reply.timestamp).toLocaleString()}</span>
+                    <div class="msg-enter flex space-x-3 bg-gray-800 p-3.5 border-2 border-gray-700 rounded-md shadow-[4px_4px_0_rgba(0,0,0,0.5)]" style="animation-delay: ${delay}s">
+                        <img src="${reply.avatar}" class="w-9 h-9 rounded pixel-avatar border border-orange-500 object-cover bg-black shrink-0">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="font-black text-sm text-orange-400 tracking-wide">${reply.name}</span>
+                                <span class="text-[10px] text-gray-500 font-bold">${new Date(reply.timestamp).toLocaleString()}</span>
                             </div>
-                            <p class="text-sm mt-1 text-gray-300">${reply.text}</p>
+                            <p class="text-sm leading-relaxed text-gray-200 font-bold">${reply.text.replace(/\n/g, '<br>')}</p>
                         </div>
                     </div>
                 `;
             });
-            list.parentElement.scrollTop = list.parentElement.scrollHeight;
+            setTimeout(() => {
+                list.parentElement.scrollTo({ top: list.parentElement.scrollHeight, behavior: 'smooth' });
+            }, 100);
         }
 
         document.getElementById('btn-u-reply').addEventListener('click', () => submitUniverseReply());
-        document.getElementById('u-reply-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') submitUniverseReply(); });
+        document.getElementById('u-reply-input').addEventListener('keydown', (e) => { 
+            if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitUniverseReply(); }
+        });
 
         async function submitUniverseReply() {
             if (!currentReadingPostId) return;
-            // 💡 已修正此處原本的括號語法錯誤
             const text = document.getElementById('u-reply-input').value.trim();
             if (!text) return;
 
@@ -665,11 +825,23 @@
             });
 
             document.getElementById('u-reply-input').value = '';
+            document.getElementById('u-reply-input').style.height = '44px';
         }
 
         window.closeUniverseModals = () => {
-            document.getElementById('universe-post-modal').classList.add('hidden');
-            document.getElementById('universe-read-modal').classList.add('hidden');
+            const modals = [document.getElementById('universe-post-modal'), document.getElementById('universe-read-modal')];
+            modals.forEach(m => {
+                if(!m.classList.contains('hidden')){
+                    m.children[0].classList.remove('modal-enter');
+                    m.children[0].style.opacity = '0';
+                    m.children[0].style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        m.classList.add('hidden');
+                        m.children[0].style = '';
+                        m.children[0].classList.add('modal-enter');
+                    }, 150);
+                }
+            });
             currentReadingPostId = null;
         };
 
