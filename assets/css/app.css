@@ -184,6 +184,18 @@ img {
         linear-gradient(90deg, rgba(242, 240, 230, 0.04) 1px, transparent 1px);
 }
 
+/* ================= 畫面標記層 =================
+   疊在最上層的透明 canvas，不接事件也不影響排版；內容由 screenmark.js 寫入。
+   z-index 要比所有畫面與彈窗高，截圖才會連標記一起帶走。 */
+.mark-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+}
+
 /* ================= 反選取與防複製 =================
    全站關閉文字選取與右鍵選單，複製／剪下事件也一律攔掉（見 app.js）。
    輸入框要能選字編輯，所以單獨開放。 */

@@ -29,6 +29,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 import { applyAvatar } from "./avatar.js";
+import { currentDeviceTag, startScreenMark } from "./screenmark.js";
 import { embedImageWatermark, markPayload } from "./watermark.js";
 import {
     cleanName,
@@ -160,6 +161,7 @@ const el = {
     btnReplySubmit: $("btn-u-reply"),
     legend: $("legend"),
     btnLegend: $("btn-legend"),
+    markLayer: $("mark-layer"),
 };
 
 /* ================= 狀態 ================= */
@@ -381,7 +383,7 @@ async function prepareImage(file, maxSide, { mark = false } = {}) {
 function stampImage(context, width, height) {
     try {
         const snapshot = context.getImageData(0, 0, width, height);
-        const payload = markPayload(state.userId);
+        const payload = markPayload(state.userId, currentDeviceTag());
         if (embedImageWatermark(snapshot.data, width, height, payload)) context.putImageData(snapshot, 0, 0);
     } catch (error) {
         console.warn("圖片標記失敗，改用原圖：", error.message);
@@ -524,10 +526,7 @@ el.btnClearAvatar.addEventListener("click", () => {
 });
 
 /* 欄位失焦就記住內容，這樣沒進房也留著下次用 */
-el.nicknameInput.addEventListener("change", () => {
-    rememberLastInput();
-    renderWatermark();
-});
+el.nicknameInput.addEventListener("change", rememberLastInput);
 el.roomIdInput.addEventListener("change", rememberLastInput);
 
 /* 暱稱一改就換一張對應的頭像，讓使用者知道名字決定臉 */
@@ -1630,6 +1629,7 @@ autoResizeAll();
 prefillInputs();
 state.avatar = readStoredAvatar();
 syncAvatarControls();
+startScreenMark(el.markLayer, state.userId);
 applyAvatar(el.avatarPreview, el.nicknameInput.value, state.avatar, AVATAR_SIDE);
 applyAvatar(el.heroAvatar, "ChatChat", "", 192);
 void restoreSession();

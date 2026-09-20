@@ -13,7 +13,13 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { embedImageWatermark, extractImageWatermark, markPayload } from "../assets/js/watermark.js";
+import {
+    embedImageWatermark,
+    embedOverlayWatermark,
+    extractImageWatermark,
+    extractOverlayWatermark,
+    markPayload,
+} from "../assets/js/watermark.js";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const work = join(repo, "..", "_tmp", "watermark");
@@ -78,6 +84,12 @@ function pngToRaw(pngName, rawName) {
     return new Uint8ClampedArray(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 }
 
+function pngToRawRaw(name) {
+    run("ffmpeg", ["-y", "-i", file(name), "-f", "rawvideo", "-pix_fmt", "rgba", file("shot-back.raw")]);
+    const buffer = readFileSync(file("shot-back.raw"));
+    return new Uint8ClampedArray(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+}
+
 function writeRaw(pixels, name) {
     writeFileSync(file(name), Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength));
 }
@@ -128,6 +140,64 @@ run("dwebp", [file("watermarked.webp"), "-o", file("after-webp.png")]);
 {
     const clean = pngToRaw("original.png", "original-raw.raw");
     check("沒寫標記的圖取不到標記", extractImageWatermark(clean, WIDTH, HEIGHT) === "");
+}
+
+/* 6. 畫面疊層標記：截圖（PNG 不失真）解得回來，被壓成 JPEG 就不行。
+      注意這條只有在「畫面有大片平坦區域」時成立——真實 UI 有底色與留白，
+      整頁都是照片時就沒有乾淨區塊可投票，那種情況靠圖片本身的標記。 */
+{
+    const uiPage = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
+    for (let i = 0; i < uiPage.length; i += 4) {
+        uiPage[i] = 246; uiPage[i + 1] = 245; uiPage[i + 2] = 240; uiPage[i + 3] = 255;
+    }
+    for (let line = 0; line < Math.floor(HEIGHT / 40); line++) {
+        const top = 20 + line * 40;
+        for (let glyph = 0; glyph < 20; glyph++) {
+            const left = 16 + glyph * 26;
+            for (let y = 0; y < 14; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const at = ((top + y) * WIDTH + left + x) * 4;
+                    uiPage[at] = 24; uiPage[at + 1] = 24; uiPage[at + 2] = 28;
+                }
+            }
+        }
+    }
+
+    const overlay = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
+    for (let i = 0; i < overlay.length; i += 4) {
+        overlay[i] = 128; overlay[i + 1] = 128; overlay[i + 2] = 128; overlay[i + 3] = 255;
+    }
+    const overlayPayload = markPayload("user_mayo_audit", "SM-G991B-canvas");
+    check("疊層標記寫得進去", embedOverlayWatermark(overlay, WIDTH, HEIGHT, overlayPayload), overlayPayload);
+
+    /* 模擬截圖：上面一段瀏覽器介面 + 下面被標記的畫面，整張存成 PNG */
+    const chrome = 37;
+    const shot = new Uint8ClampedArray(WIDTH * (HEIGHT + chrome) * 4);
+    for (let y = 0; y < HEIGHT + chrome; y++) {
+        for (let x = 0; x < WIDTH; x++) {
+            const at = (y * WIDTH + x) * 4;
+            if (y < chrome) {
+                shot[at] = 40; shot[at + 1] = 40; shot[at + 2] = 44; shot[at + 3] = 255;
+                continue;
+            }
+            const from = ((y - chrome) * WIDTH + x) * 4;
+            for (let channel = 0; channel < 3; channel++) {
+                shot[at + channel] = Math.round(0.95 * uiPage[from + channel] + 0.05 * overlay[from + channel]);
+            }
+            shot[at + 3] = 255;
+        }
+    }
+
+    writeFileSync(file("shot.raw"), Buffer.from(shot.buffer, shot.byteOffset, shot.byteLength));
+    run("ffmpeg", ["-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${WIDTH}x${HEIGHT + chrome}`, "-i", file("shot.raw"), "-frames:v", "1", file("shot.png")]);
+    check("全螢幕截圖（PNG）解得回疊層標記", extractOverlayWatermark(pngToRawRaw("shot.png"), WIDTH, HEIGHT + chrome) === overlayPayload);
+
+    run("ffmpeg", ["-y", "-i", file("shot.png"), "-q:v", "3", file("shot.jpg")]);
+    run("ffmpeg", ["-y", "-i", file("shot.jpg"), "-f", "rawvideo", "-pix_fmt", "rgba", file("shot-jpg.raw")]);
+    const jpgBuffer = readFileSync(file("shot-jpg.raw"));
+    const jpgPixels = new Uint8ClampedArray(jpgBuffer.buffer, jpgBuffer.byteOffset, jpgBuffer.byteLength);
+    const fromJpeg = extractOverlayWatermark(jpgPixels, WIDTH, HEIGHT + chrome) === overlayPayload;
+    console.log(`INFO  同一張截圖轉成 JPEG 後：${fromJpeg ? "還取得回" : "取不回（已知限制，要更大的透明度才行）"}`);
 }
 
 console.log(failures === 0 ? "\n全部通過" : `\n${failures} 項失敗`);

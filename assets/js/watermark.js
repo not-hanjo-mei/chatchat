@@ -26,11 +26,11 @@ const STEP_SECOND = 20;
 /* 低頻區塊的起伏門檻：低於它的區塊（大面積平色）不寫，避免出現方塊感。 */
 const MIN_ACTIVITY = 6;
 
-/* 固定長度的負載區塊：表頭 3 bytes + 最多 13 bytes 內容 = 16 bytes = 128 bits。
+/* 固定長度的負載區塊：表頭 3 bytes + 最多 29 bytes 內容 = 32 bytes = 256 bits。
    長度固定，取出端才能在不先知道長度的情況下對齊位元。 */
 const MAGIC = 0xa5;
-const PAYLOAD_MAX = 13;
-const BLOCK_BYTES = 16;
+export const PAYLOAD_MAX = 29;
+const BLOCK_BYTES = 32;
 const BLOCK_BITS = BLOCK_BYTES * 8;
 
 /* 打亂係數用的種子。公開在原始碼裡，只影響圖形樣式，不當成秘密。 */
@@ -48,10 +48,14 @@ export function fingerprint(text) {
     return hash >>> 0;
 }
 
-/** 標記內容：指紋 + 日期（base36 天數），最多 13 個可列印 ASCII 字元。 */
-export function markPayload(userId, now = Date.now()) {
-    const day = Math.floor(now / 86400000).toString(36);
-    return `${fingerprint(userId).toString(36)}.${day}`.slice(0, PAYLOAD_MAX);
+/**
+ * 標記內容：使用者 ID 的指紋 + 設備型號。
+ * 指紋是把 ID 壓成 6~7 個 base36 字元（32 位元），長度短才塞得進圖片與頁面標記；
+ * 取出後用 tools/watermark-decode.mjs 比對成員名單就能還原成是誰。
+ */
+export function markPayload(userId, device = "unknown") {
+    const tag = String(device ?? "").replace(/[^A-Za-z0-9._-]+/g, "").slice(0, 20) || "unknown";
+    return `${fingerprint(userId).toString(36)}.${tag}`.slice(0, PAYLOAD_MAX);
 }
 
 /** 負載 → 位元陣列（固定 BLOCK_BITS 長）；不合格式回 null */
@@ -472,4 +476,143 @@ export function extractImageWatermark(pixels, width, height, { stepMain = STEP_M
     }
 
     return bitsToPayload(majorityBits(ones, counts));
+}
+
+/* ==========================================================================
+   頁面疊層水印（canvas 疊在畫面上）
+   --------------------------------------------------------------------------
+   為什麼另一條路走不通：整頁疊圖時，底下是我們看不到的內容，低頻係數會被頁面
+   亮度整片蓋掉，所以標記不能寫在低頻。這裡改成寫在**中頻**係數對上：頁面平坦
+   的地方中頻幾乎沒有能量，只要解碼時只挑「沒有文字的低變異區塊」投票，α 很小
+   也解得出來（實測 α=0.05、畫面平均差 5/255 就看不出來，而截圖是 PNG 不失真）。
+
+   已知限制：截圖被重新壓縮成 JPEG/WebP 之後就取不回（除非把透明度開大到看得
+   見）；裁切過的截圖靠相位搜尋救回一部分。
+   ========================================================================== */
+
+const OVERLAY_COEFF_A = 2 * BLOCK_SIDE + 1;
+const OVERLAY_COEFF_B = 1 * BLOCK_SIDE + 2;
+const OVERLAY_DELTA = 60;
+const OVERLAY_KEEP = 0.4;
+
+/** 把標記寫進一整層畫布（就地改寫）。標記振幅與畫布底色無關。 */
+export function embedOverlayWatermark(pixels, width, height, payload, { delta = OVERLAY_DELTA } = {}) {
+    const bits = payloadBits(payload);
+    if (!bits) return false;
+
+    const columns = Math.floor(width / BLOCK_SIDE);
+    const rows = Math.floor(height / BLOCK_SIDE);
+    if (columns * rows < BLOCK_BITS) return false;
+
+    const block = new Float64Array(BLOCK_VALUES);
+    const coeff = new Float64Array(BLOCK_VALUES);
+    const rebuilt = new Float64Array(BLOCK_VALUES);
+    let written = 0;
+
+    for (let row = 0; row < rows; row++) {
+        for (let column = 0; column < columns; column++) {
+            const originX = column * BLOCK_SIDE;
+            const originY = row * BLOCK_SIDE;
+            for (let i = 0; i < BLOCK_VALUES; i++) {
+                const at = ((originY + Math.floor(i / BLOCK_SIDE)) * width + originX + (i % BLOCK_SIDE)) * 4;
+                block[i] = 0.299 * pixels[at] + 0.587 * pixels[at + 1] + 0.114 * pixels[at + 2];
+            }
+
+            blockTransform(block, coeff, false);
+            const a = coeff[OVERLAY_COEFF_A];
+            const b = coeff[OVERLAY_COEFF_B];
+            const bit = bits[(row * columns + column) % BLOCK_BITS];
+
+            if (bit === 1 && Math.abs(a) < Math.abs(b) + delta) {
+                coeff[OVERLAY_COEFF_A] = Math.sign(a || 1) * (Math.abs(b) + delta);
+            } else if (bit === 0 && Math.abs(b) < Math.abs(a) + delta) {
+                coeff[OVERLAY_COEFF_B] = Math.sign(b || 1) * (Math.abs(a) + delta);
+            }
+
+            blockTransform(coeff, rebuilt, true);
+
+            for (let i = 0; i < BLOCK_VALUES; i++) {
+                const at = ((originY + Math.floor(i / BLOCK_SIDE)) * width + originX + (i % BLOCK_SIDE)) * 4;
+                const shifted = rebuilt[i] - block[i];
+                for (let channel = 0; channel < 3; channel++) {
+                    pixels[at + channel] = Math.max(0, Math.min(255, pixels[at + channel] + shifted));
+                }
+            }
+            written += 1;
+        }
+    }
+
+    return written >= BLOCK_BITS;
+}
+
+/**
+ * 從疊過水印的畫面（例如全螢幕截圖）取回標記。
+ * 會試 16 種格線相位（截圖含有瀏覽器介面時會位移），
+ * 只採計低變異區塊（有文字的區塊是雜訊），並試 256 種位元位移。
+ * @returns {string} 標記字串；取不到就回空字串
+ */
+export function extractOverlayWatermark(pixels, width, height, { keepRatio = OVERLAY_KEEP } = {}) {
+    const columns = Math.floor(width / BLOCK_SIDE);
+    const rows = Math.floor(height / BLOCK_SIDE);
+    if (columns * rows < BLOCK_BITS) return "";
+
+    const block = new Float64Array(BLOCK_VALUES);
+    const coeff = new Float64Array(BLOCK_VALUES);
+
+    for (let phaseY = 0; phaseY < BLOCK_SIDE; phaseY++) {
+        for (let phaseX = 0; phaseX < BLOCK_SIDE; phaseX++) {
+            const candidates = [];
+            for (let row = phaseY; row + BLOCK_SIDE <= height; row += BLOCK_SIDE) {
+                for (let column = phaseX; column + BLOCK_SIDE <= width; column += BLOCK_SIDE) {
+                    let sum = 0;
+                    for (let i = 0; i < BLOCK_VALUES; i++) {
+                        const at = ((row + Math.floor(i / BLOCK_SIDE)) * width + column + (i % BLOCK_SIDE)) * 4;
+                        block[i] = 0.299 * pixels[at] + 0.587 * pixels[at + 1] + 0.114 * pixels[at + 2];
+                        sum += block[i];
+                    }
+                    const mean = sum / BLOCK_VALUES;
+                    let variance = 0;
+                    for (let i = 0; i < BLOCK_VALUES; i++) variance += (block[i] - mean) ** 2;
+
+                    blockTransform(block, coeff, false);
+                    /* 比的是兩個中頻係數，DC（整塊亮度）不參與，所以頁面底色不影響判定 */
+                    const diff = Math.abs(coeff[OVERLAY_COEFF_A]) - Math.abs(coeff[OVERLAY_COEFF_B]);
+
+                    candidates.push({
+                        row: (row - phaseY) / BLOCK_SIDE,
+                        column: (column - phaseX) / BLOCK_SIDE,
+                        diff,
+                        activity: Math.sqrt(variance / BLOCK_VALUES),
+                    });
+                }
+            }
+
+            /* 只留起伏最小的一群：有文字或邊緣的區塊對標記來說是雜訊來源 */
+            candidates.sort((left, right) => left.activity - right.activity);
+            const usable = candidates.slice(0, Math.max(BLOCK_BITS, Math.floor(candidates.length * keepRatio)));
+
+            const ones = new Float64Array(BLOCK_BITS);
+            const counts = new Float64Array(BLOCK_BITS);
+            for (const item of usable) {
+                const slot = (item.row * columns + item.column) % BLOCK_BITS;
+                ones[slot] += item.diff > 0 ? 1 : 0;
+                counts[slot] += 1;
+            }
+
+            const bits = new Uint8Array(BLOCK_BITS);
+            for (let i = 0; i < BLOCK_BITS; i++) {
+                bits[i] = counts[i] > 0 && ones[i] * 2 > counts[i] ? 1 : 0;
+            }
+
+            /* 列位移會讓整串位元環狀平移，所以連位移一起試（驗證碼會擋掉錯的） */
+            for (let shift = 0; shift < BLOCK_BITS; shift++) {
+                const rotated = new Uint8Array(BLOCK_BITS);
+                for (let i = 0; i < BLOCK_BITS; i++) rotated[i] = bits[(i + shift) % BLOCK_BITS];
+                const payload = bitsToPayload(rotated);
+                if (payload) return payload;
+            }
+        }
+    }
+
+    return "";
 }

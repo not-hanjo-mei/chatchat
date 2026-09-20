@@ -95,6 +95,40 @@ export function safeEmoji(value) {
     return trimmed.length > 0 && trimmed.length <= 8 && EMOJI_PATTERN.test(trimmed) ? trimmed : "";
 }
 
+/* 設備型號只留英數與 - _ .，最長 16 字元，避免塞進標記時爆長或夾帶控制字元 */
+export const MAX_DEVICE = 16;
+
+function cleanDeviceTag(value) {
+    return String(value ?? "")
+        .replace(/[^A-Za-z0-9._-]+/g, "")
+        .replace(/^[-._]+|[-._]+$/g, "")
+        .slice(0, MAX_DEVICE);
+}
+
+/**
+ * 從 user agent 抓出可讀的機型，只為了寫進水印，不做指紋或追蹤。
+ * 抓不到就回 unknown。
+ */
+export function deviceModel(userAgent) {
+    const ua = String(userAgent ?? "");
+
+    /* Android 的 UA 通常是「Android 13; SM-G991B Build/TP1A」，機型在中間那一段 */
+    const android = ua.match(/Android[^;)]*;\s*([^;)]+)/i);
+    if (android) {
+        const model = cleanDeviceTag(android[1].replace(/\s*Build[/\s].*$/i, ""));
+        return model || "Android";
+    }
+
+    if (/\biPad\b/i.test(ua)) return "iPad";
+    if (/\biPhone\b/i.test(ua)) return "iPhone";
+    if (/\biPod\b/i.test(ua)) return "iPod";
+    if (/Windows NT/i.test(ua)) return "Windows";
+    if (/CrOS/i.test(ua)) return "ChromeOS";
+    if (/Macintosh|Mac OS X/i.test(ua)) return "Mac";
+    if (/Linux/i.test(ua)) return "Linux";
+    return "unknown";
+}
+
 /** 貼進 SVG <text> 前把 XML 特殊字元換掉（頭像的底色圖用） */
 export function escapeXml(value) {
     return String(value).replace(/[&<>"']/g, (char) => {

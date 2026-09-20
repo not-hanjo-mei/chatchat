@@ -20,12 +20,13 @@ assets/css/app.css             設計系統：色票、亮暗主題、所有元�
 assets/js/app.js               應用邏輯：畫面切換、Firebase、訊息與宇宙
 assets/js/sanitize.js          輸入淨化與驗證（純函式，可單獨測試）
 assets/js/avatar.js            名字 → GrokBot 頭像（固定、可重現）
-assets/js/watermark.js         圖片盲水印：寫入與取出（純函式，可單獨測試）
+assets/js/watermark.js         盲水印：畫面疊層與圖片兩種載體（純函式，可單獨測試）
+assets/js/screenmark.js        畫面標記層：canvas 疊層與裝置簽章
 assets/js/vendor/grokbot.js    打包後的 grokbot 繪圖引擎（產物，要 commit）
 assets/img/*.webp              站台圖片（由 PNG 轉來）
 tailwind.input.css             Tailwind 的進入點（給重建指令用）
-tools/selfcheck.mjs            31 項自我檢查
-tools/e2e.mjs                  jsdom 端到端流程測試（36 項）
+tools/selfcheck.mjs            37 項自我檢查
+tools/e2e.mjs                  jsdom 端到端流程測試（38 項）
 tools/watermark-roundtrip.mjs  真過一次 WebP 壓縮的盲水印往返與 SSIM
 tools/watermark-decode.mjs     從洩漏的圖片取出標記
 vendor/grokbot/                頭像引擎原始碼與授權（BSD-3-Clause）
@@ -74,21 +75,25 @@ npm install        # 只有測試需要（jsdom）；網站本身零依賴
 npm test           # = selfcheck + e2e
 ```
 
-- **`tools/selfcheck.mjs`（31 項）**：輸入淨化、房號與圖片來源白名單、頻率限制、頭像可重現、程式碼裡沒有 `innerHTML` 或行內事件、`app.js` 取用的每個 id 都存在、每個被引用的資產都存在、CSS 括號成對。
-- **`tools/e2e.mjs`（36 項）**：在 jsdom 裡跑真正的 `app.js`（Firebase 換成 `tools/fb-stub.js`），走一遍「建立房間 → 按鈕送出 → Enter 送出 → 離開 → 重新整理自動回房 → 心情宇宙點星點 → 點心情看清單」。
+- **`tools/selfcheck.mjs`（37 項）**：輸入淨化、房號與圖片來源白名單、頻率限制、頭像可重現、程式碼裡沒有 `innerHTML` 或行內事件、`app.js` 取用的每個 id 都存在、每個被引用的資產都存在、CSS 括號成對。
+- **`tools/e2e.mjs`（38 項）**：在 jsdom 裡跑真正的 `app.js`（Firebase 換成 `tools/fb-stub.js`），走一遍「建立房間 → 按鈕送出 → Enter 送出 → 離開 → 重新整理自動回房 → 心情宇宙點星點 → 點心情看清單」。
   這個測試是必要的：靜態檢查抓不到「呼叫了不存在的 API」——`chatLimiter.allow()` 這個打字錯誤就是它抓到的（詳見 `SECURITY.md` 的變更記錄）。
 
 ## 防複製與圖片盲水印
 
 - **防複製**：全站關閉文字選取、右鍵選單與複製／剪下事件（輸入框例外，要能編輯自己的草稿）。這是摩擦，不是防護。
-- **圖片盲水印**：每一張送進房間的圖片在轉成 WebP 之前會被打上盲水印（`assets/js/watermark.js`，移植自 [blind_watermark](https://github.com/guofei9987/blind_watermark)：RGB→YUV→Haar 小波→區塊 DCT→SVD→QIM 量化，三個通道＋多數決）。標記是「上傳者指紋＋日期」，眼睛看不出來，不需要原圖就能取出。
+- **水印**：兩種載體，內容都是「使用者 ID 指紋 ＋ 裝置簽章」，強制開啟、畫面上沒有開關也沒有說明。
+  1. 畫面疊層（`assets/js/screenmark.js`）：整頁蓋一層透明 canvas，標記寫在中頻係數，截圖帶得走。
+  2. 圖片本身（`assets/js/watermark.js`，移植自 [blind_watermark](https://github.com/guofei9987/blind_watermark)：YUV→Haar 小波→區塊 DCT→SVD→QIM 量化，三通道取多數決）：送進房間的圖片在轉檔前寫入，耐 WebP 重新壓縮。
+
+  裝置簽章是 canvas 畫固定圖樣後的像素雜湊，不是 user agent。
 
 ```bash
 npm run test:watermark                                  # 真的過一次 WebP 壓縮、量 SSIM（需要 ffmpeg 與 cwebp）
 node tools/watermark-decode.mjs leak.webp members.txt   # 取出標記並比對成員名單
 ```
 
-限制：重新縮圖或裁切後取不回來；截圖無法承載標記（疊 canvas 的做法已實測不可行，見 `SECURITY.md`）。
+限制：截圖必須是 PNG（被轉成 JPEG/WebP 就失效），畫面整頁都是照片時疊層取不回；圖片被縮圖或裁切後也取不回。細節與實測表在 `SECURITY.md`。
 
 ## 心情宇宙怎麼讀
 

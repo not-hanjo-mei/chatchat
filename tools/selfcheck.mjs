@@ -4,7 +4,16 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
-import { embedImageWatermark, extractImageWatermark, fingerprint, markPayload } from "../assets/js/watermark.js";
+import { deviceModel } from "../assets/js/sanitize.js";
+import {
+    embedImageWatermark,
+    embedOverlayWatermark,
+    extractImageWatermark,
+    extractOverlayWatermark,
+    fingerprint,
+    markPayload,
+    PAYLOAD_MAX as PAYLOAD_MAX_PUBLIC,
+} from "../assets/js/watermark.js";
 import {
     cleanName,
     cleanText,
@@ -139,23 +148,35 @@ function watermarkImage(width, height) {
     return pixels;
 }
 
-check("標記內容是指紋加日期，長度固定且可回推", () => {
-    assert.equal(markPayload("user_mayo_audit", 0), "wd64d9.0");
-    assert.equal(markPayload("user_mayo_audit", 1770000000000), "wd64d9.ft2");
+check("標記內容是使用者指紋加裝置標籤", () => {
+    assert.equal(markPayload("user_mayo_audit", "SM-G991B"), "wd64d9.SM-G991B");
+    assert.equal(markPayload("user_mayo_audit"), "wd64d9.unknown");
+    assert.equal(markPayload("user_mayo_audit", "中文機型！"), "wd64d9.unknown");
     assert.equal(fingerprint("mayonnaise"), 3621736253);
-    assert.ok(markPayload("x".repeat(400)).length <= 13, "標記內容超過負載長度");
+    const longest = markPayload("mai" + "x".repeat(400), "SM-G991B-1234567890");
+    assert.ok(longest.length <= PAYLOAD_MAX_PUBLIC, `標記長度 ${longest.length} 超過上限`);
+    assert.ok(longest.endsWith("SM-G991B-1234567890".slice(0, 20)), `裝置標籤被截掉了：${longest}`);
+});
+
+check("機型從 user agent 抓得出來，抓不到就說 unknown", () => {
+    assert.equal(deviceModel("Mozilla/5.0 (Linux; Android 13; SM-G991B Build/TP1A) Chrome/120"), "SM-G991B");
+    assert.equal(deviceModel("Mozilla/5.0 (Linux; Android 12; V2166A; wv) Chrome/120"), "V2166A");
+    assert.equal(deviceModel("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"), "iPhone");
+    assert.equal(deviceModel("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120"), "Windows");
+    assert.equal(deviceModel(""), "unknown");
+    assert.equal(deviceModel(undefined), "unknown");
 });
 
 check("寫進圖片再取出來，內容一致", () => {
     const pixels = watermarkImage(640, 480);
-    assert.ok(embedImageWatermark(pixels, 640, 480, "wd64d9.ft2"), "寫不進去");
-    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.ft2");
+    assert.ok(embedImageWatermark(pixels, 640, 480, "wd64d9.SM-G991B"), "寫不進去");
+    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.SM-G991B");
 });
 
 check("標記改動幅度小到看不出來", () => {
     const before = watermarkImage(640, 480);
     const after = Uint8ClampedArray.from(before);
-    embedImageWatermark(after, 640, 480, "wd64d9.ft2");
+    embedImageWatermark(after, 640, 480, "wd64d9.SM-G991B");
     let total = 0;
     let worst = 0;
     for (let i = 0; i < after.length; i += 4) {
@@ -169,14 +190,14 @@ check("標記改動幅度小到看不出來", () => {
 
 check("加一點雜訊後仍取得回標記", () => {
     const pixels = watermarkImage(640, 480);
-    embedImageWatermark(pixels, 640, 480, "wd64d9.ft2");
+    embedImageWatermark(pixels, 640, 480, "wd64d9.SM-G991B");
     let seed = 5;
     const random = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
     for (let i = 0; i < pixels.length; i++) {
         if (i % 4 === 3) continue;
         pixels[i] = Math.max(0, Math.min(255, pixels[i] + Math.round((random() - 0.5) * 12)));
     }
-    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.ft2");
+    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.SM-G991B");
 });
 
 check("沒寫標記的圖取不到東西", () => {
@@ -185,14 +206,104 @@ check("沒寫標記的圖取不到東西", () => {
 
 check("太小的圖不寫，也不亂回東西", () => {
     const pixels = watermarkImage(96, 96);
-    assert.equal(embedImageWatermark(pixels, 96, 96, "wd64d9.ft2"), false);
+    assert.equal(embedImageWatermark(pixels, 96, 96, "wd64d9.SM-G991B"), false);
     assert.equal(extractImageWatermark(pixels, 96, 96), "");
 });
 
 check("不合規的標記內容直接拒絕", () => {
     const pixels = watermarkImage(640, 480);
     assert.equal(embedImageWatermark(pixels, 640, 480, "這是中文標記"), false);
-    assert.equal(embedImageWatermark(pixels, 640, 480, "x".repeat(20)), false);
+    assert.equal(embedImageWatermark(pixels, 640, 480, "x".repeat(40)), false);
+});
+
+/* ---------- 畫面疊層標記（canvas 疊在頁面上） ---------- */
+/* 模擬一頁「淺色底 + 黑色文字條」的畫面 */
+function pageImage(width, height) {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < pixels.length; i += 4) {
+        pixels[i] = 246; pixels[i + 1] = 245; pixels[i + 2] = 240; pixels[i + 3] = 255;
+    }
+    for (let line = 0; line < Math.floor(height / 40); line++) {
+        const top = 20 + line * 40;
+        for (let glyph = 0; glyph < Math.floor(width / 14) - 2; glyph++) {
+            const left = 12 + glyph * 14;
+            for (let y = 0; y < 12; y++) {
+                for (let x = 0; x < 7; x++) {
+                    const at = ((top + y) * width + left + x) * 4;
+                    pixels[at] = 20; pixels[at + 1] = 20; pixels[at + 2] = 24;
+                }
+            }
+        }
+    }
+    return pixels;
+}
+
+function overlayImage(width, height) {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < pixels.length; i += 4) {
+        pixels[i] = 128; pixels[i + 1] = 128; pixels[i + 2] = 128; pixels[i + 3] = 255;
+    }
+    assert.ok(embedOverlayWatermark(pixels, width, height, "wd64d9.SM-G991B"), "疊層寫不進去");
+    return pixels;
+}
+
+function composite(page, overlay, alpha) {
+    const out = new Uint8ClampedArray(page.length);
+    for (let i = 0; i < out.length; i += 4) {
+        for (let channel = 0; channel < 3; channel++) {
+            out[i + channel] = Math.round((1 - alpha) * page[i + channel] + alpha * overlay[i + channel]);
+        }
+        out[i + 3] = 255;
+    }
+    return out;
+}
+
+check("疊一層透明 canvas 之後，截圖仍取得回標記", () => {
+    const width = 600;
+    const height = 1200;
+    const page = pageImage(width, height);
+    const marked = composite(page, overlayImage(width, height), 0.05);
+    assert.equal(extractOverlayWatermark(marked, width, height), "wd64d9.SM-G991B");
+});
+
+check("疊層只留下很小的視覺差異", () => {
+    const width = 600;
+    const height = 1200;
+    const page = pageImage(width, height);
+    const marked = composite(page, overlayImage(width, height), 0.05);
+    let total = 0;
+    let worst = 0;
+    for (let i = 0; i < marked.length; i += 4) {
+        const delta = Math.abs(marked[i] - page[i]);
+        total += delta;
+        if (delta > worst) worst = delta;
+    }
+    assert.ok(total / (marked.length / 4) < 8, `平均差 ${total / (marked.length / 4)} 過大`);
+    assert.ok(worst <= 20, `最大差 ${worst} 過大`);
+});
+
+check("截圖上下被切掉（格線位移）仍取得回標記", () => {
+    const width = 600;
+    const page = pageImage(width, 1200);
+    const overlay = overlayImage(width, 1200);
+    const shifted = new Uint8ClampedArray(width * 1240 * 4);
+    for (let i = 0; i < shifted.length; i += 4) {
+        shifted[i] = 40; shifted[i + 1] = 40; shifted[i + 2] = 44; shifted[i + 3] = 255;
+    }
+    for (let y = 0; y < 1200; y++) {
+        for (let x = 0; x < width; x++) {
+            const from = (y * width + x) * 4;
+            const to = ((y + 26) * width + x) * 4;
+            for (let channel = 0; channel < 3; channel++) {
+                shifted[to + channel] = Math.round(0.95 * page[from + channel] + 0.05 * overlay[from + channel]);
+            }
+        }
+    }
+    assert.equal(extractOverlayWatermark(shifted, width, 1240), "wd64d9.SM-G991B");
+});
+
+check("沒寫標記的畫面取不到東西", () => {
+    assert.equal(extractOverlayWatermark(pageImage(600, 1200), 600, 1200), "");
 });
 
 /* ---------- 時間 ---------- */
@@ -233,7 +344,7 @@ check("頻率限制擋連點與爆量", () => {
 });
 
 /* ---------- 原始碼層級的迴歸檢查 ---------- */
-const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js", "assets/js/watermark.js"];
+const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js", "assets/js/watermark.js", "assets/js/screenmark.js"];
 const APP_JS = readFileSync("assets/js/app.js", "utf8");
 const INDEX_HTML = readFileSync("index.html", "utf8");
 const APP_CSS = readFileSync("assets/css/app.css", "utf8");
@@ -273,6 +384,15 @@ check("引用到的本地資產都存在（圖片、CSS、JS）", () => {
     assert.ok(referenced.size >= 10, `只找到 ${referenced.size} 個資產引用`);
     for (const path of referenced) {
         assert.ok(existsSync(path), `找不到被引用的檔案：${path}`);
+    }
+});
+
+check("assets/js 裡的相對匯入都指得到檔案", () => {
+    for (const file of ["app.js", "avatar.js", "sanitize.js", "watermark.js", "screenmark.js"]) {
+        const text = readFileSync(`assets/js/${file}`, "utf8");
+        for (const match of text.matchAll(/from "\.\/([A-Za-z0-9_-]+)\.js"/g)) {
+            assert.ok(existsSync(`assets/js/${match[1]}.js`), `${file} 匯入的 ${match[1]}.js 不存在`);
+        }
     }
 });
 

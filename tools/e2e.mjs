@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { JSDOM } from "jsdom";
+import { JSDOM, VirtualConsole } from "jsdom";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workdir = mkdtempSync(join(tmpdir(), "chatchat-e2e-"));
@@ -32,9 +32,8 @@ function buildBundle(tag) {
     const source = readFileSync(join(repo, "assets/js/app.js"), "utf8")
         .replace(/"https:\/\/www\.gstatic\.com[^"]*firebase-app\.js"/, JSON.stringify(join(repo, "tools/fb-stub.js")))
         .replace(/"https:\/\/www\.gstatic\.com[^"]*firebase-database\.js"/, JSON.stringify(join(repo, "tools/fb-stub.js")))
-        .replace(/from "\.\/sanitize\.js"/, `from ${JSON.stringify(join(repo, "assets/js/sanitize.js"))}`)
-        .replace(/from "\.\/avatar\.js"/, `from ${JSON.stringify(join(repo, "assets/js/avatar.js"))}`)
-        .replace(/from "\.\/watermark\.js"/, `from ${JSON.stringify(join(repo, "assets/js/watermark.js"))}`);
+        /* 同層模組一律換成絕對路徑，打包檔才有辦法在暫存目錄裡解析 */
+        .replace(/from "\.\/([A-Za-z0-9_-]+)\.js"/g, (_, name) => `from ${JSON.stringify(join(repo, "assets/js", `${name}.js`))}`);
 
     const entry = join(workdir, `entry-${tag}.js`);
     const outfile = join(workdir, `bundle-${tag}.mjs`);
@@ -69,10 +68,17 @@ function setGlobal(name, value) {
 }
 
 /** 建一個 jsdom 環境並載入 app.js 打包檔 */
-async function boot({ tag, session = null, lastInput = null, avatar = null, alerts }) {
+async function boot({ tag, session = null, lastInput = null, avatar = null, alerts, errors = [] }) {
+    /* jsdom 會把事件處理器裡丟出的例外吞成 jsdomError，這裡把它們收起來，
+       否則「呼叫不存在的函式」這種錯誤在測試裡看不到（真的發生過）。 */
+    const virtualConsole = new VirtualConsole();
+    virtualConsole.on("jsdomError", (error) => errors.push(String(error?.message ?? error)));
+    virtualConsole.forwardTo(console, { jsdomErrors: "none" });
+
     const dom = new JSDOM(readFileSync(join(repo, "index.html"), "utf8"), {
         url: "http://localhost:8080/",
         pretendToBeVisual: true,
+        virtualConsole,
     });
     const { window } = dom;
 
@@ -129,7 +135,8 @@ async function flush(rounds = 8) {
 }
 
 const alerts = [];
-const window = await boot({ tag: "fresh", alerts });
+const errors = [];
+const window = await boot({ tag: "fresh", alerts, errors });
 const document = window.document;
 const $ = (id) => document.getElementById(id);
 const visible = (id) => !$(id).classList.contains("is-hidden");
@@ -138,6 +145,12 @@ const click = (element) => element.dispatchEvent(new window.MouseEvent("click", 
 /* ---------- 建立房間 ---------- */
 $("room-id").value = "TESTROOM";
 $("nickname").value = "tester";
+$("nickname").dispatchEvent(new window.Event("change", { bubbles: true }));
+check("改暱稱不會拋錯（會記住上次輸入）", errors.length === 0, errors.join(" / "));
+
+const markLayer = $("mark-layer");
+check("畫面上有一層透明標記層", markLayer !== null && Number(markLayer.style.opacity) > 0 && Number(markLayer.style.opacity) < 0.1,
+    markLayer ? markLayer.style.opacity : "找不到");
 click($("btn-create"));
 await flush(14);
 
