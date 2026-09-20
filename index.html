@@ -9,25 +9,28 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* 機密模式樣式 */
+        /* 機密模式樣式 - 禁用選取 */
         .secure-mode {
             user-select: none;
             -webkit-user-select: none;
         }
+        
+        /* 浮水印層：預設隱藏，背景圖會由 JS 動態注入 */
         .watermark {
             pointer-events: none;
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" opacity="0.05" transform="rotate(-45)"><text x="10" y="100" font-size="20" fill="black" font-family="sans-serif">機密內容 - 禁止外流</text></svg>');
             z-index: 9999;
             display: none;
         }
+        
+        /* 當 body 加上 secure-mode 時才顯示浮水印 */
         .secure-mode .watermark { display: block; }
     </style>
 </head>
 <body class="bg-gray-100 h-screen flex items-center justify-center font-sans text-gray-800 bg-cover bg-center" id="main-body">
 
-    <!-- 浮水印層 -->
+    <!-- 動態浮水印層 -->
     <div class="watermark" id="watermark-layer"></div>
 
     <!-- 登入/建立房間畫面 -->
@@ -124,19 +127,35 @@
         let currentRoomId = null;
         let isHost = false;
         
-        // 新功能狀態
-        let replyingTo = null; // { id, name, text }
-        let currentSelectedMsgId = null; // 給星星選單用的
+        let replyingTo = null;
+        let currentSelectedMsgId = null;
 
-        // DOM
         const chatMessages = document.getElementById('chat-messages');
         const messageInput = document.getElementById('message-input');
         const starMenu = document.getElementById('star-menu');
 
+        // ====== 新增：動態生成專屬浮水印 ======
+        function setDynamicWatermark() {
+            // 抓取當前時間戳記，增加追蹤準確度
+            const dateStr = new Date().toLocaleString('zh-TW', { hour12: false });
+            // 將要顯示的文字 (機密內容 - 使用者暱稱 ID 時間) 進行 URI 編碼，避免 SVG 解析錯誤
+            const watermarkText = encodeURIComponent(`機密內容 - ${myNickname} (${myUserId})${dateStr}`);
+            
+            // 製作 SVG 字串，擴大畫布與字距避免過度重疊
+            const svgStr = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="350" height="250" opacity="0.08" transform="rotate(-30)">
+                    <text x="0" y="100" font-size="16" fill="black" font-family="sans-serif">${watermarkText}</text>
+                </svg>
+            `;
+            
+            // 注入到 CSS 中
+            document.getElementById('watermark-layer').style.backgroundImage = `url("data:image/svg+xml;utf8,${svgStr}")`;
+        }
+
         // ====== 1. 圖片處理 (壓縮與轉 Base64) ======
         function processImage(file, callback) {
             if (!file) return;
-            if (file.size > 2 * 1024 * 1024) return alert('圖片請小於 2MB'); // 避免資料庫撐爆
+            if (file.size > 2 * 1024 * 1024) return alert('圖片請小於 2MB'); 
             const reader = new FileReader();
             reader.onload = (e) => callback(e.target.result);
             reader.readAsDataURL(file);
@@ -177,6 +196,9 @@
             await set(myRef, { name: myNickname, avatar: myAvatarBase64, joinedAt: Date.now() });
             onDisconnect(myRef).remove();
 
+            // 成功加入房間後，設定專屬浮水印
+            setDynamicWatermark();
+
             document.getElementById('setup-screen').classList.add('hidden');
             document.getElementById('chat-screen').classList.remove('hidden');
             document.getElementById('display-room-id').innerText = roomId;
@@ -186,19 +208,16 @@
 
         // ====== 4. 監聽器與防外流模式 ======
         function setupListeners() {
-            // 監聽房間設定 (防截圖)
             onValue(ref(db, `rooms/${currentRoomId}/settings/secureMode`), (snap) => {
                 const isSecure = snap.val() || false;
                 document.body.classList.toggle('secure-mode', isSecure);
                 if (isHost) document.getElementById('secure-toggle').checked = isSecure;
             });
 
-            // 房主切換防截圖
             document.getElementById('secure-toggle').addEventListener('change', (e) => {
                 update(ref(db, `rooms/${currentRoomId}/settings`), { secureMode: e.target.checked });
             });
 
-            // 監聽成員與房主
             onValue(ref(db, `rooms/${currentRoomId}/members`), async (snap) => {
                 const members = snap.val();
                 if (!members) return; 
@@ -212,20 +231,15 @@
                 renderMembers(members, hostSnap.val());
             });
 
-            // 監聽訊息新增
             onChildAdded(ref(db, `rooms/${currentRoomId}/messages`), (snap) => renderMessage(snap.key, snap.val()));
-            
-            // 監聽訊息變更 (例如別人按了表情符號)
             onChildChanged(ref(db, `rooms/${currentRoomId}/messages`), (snap) => updateMessageReactions(snap.key, snap.val()));
         }
 
         // ====== 5. 渲染訊息與 @提及功能 ======
         function renderMessage(msgId, msg) {
             const isMe = msg.sender === myUserId;
-            // 判斷是否有人 @ 我
             const isMentioningMe = msg.text && msg.text.includes('@' + myNickname);
             
-            // 處理文字內的 @ 標記顏色
             let formattedText = msg.text ? msg.text.replace(/@(\S+)/g, '<span class="text-blue-600 font-bold bg-blue-100 px-1 rounded">@$1</span>') : '';
 
             const msgDiv = document.createElement('div');
@@ -238,14 +252,12 @@
             html += `<div class="max-w-[75%] relative">`;
             if (!isMe) html += `<p class="text-xs text-gray-500 mb-1 ml-1">${msg.name}</p>`;
             
-            // 如果有回覆，顯示引用區塊
             if (msg.replyTo) {
                 html += `<div class="bg-black/5 text-xs p-1.5 rounded-t-xl border-l-4 border-indigo-400 mb-[-5px] pb-2 text-gray-600 truncate">
                             回覆 ${msg.replyTo.name}:${msg.replyTo.text || '圖片'}
                          </div>`;
             }
 
-            // 訊息主體 (如果被 @，背景變色)
             const bubbleBg = isMe ? 'bg-indigo-600 text-white' : (isMentioningMe ? 'bg-yellow-100 text-gray-800 ring-2 ring-yellow-400' : 'bg-white text-gray-800');
             html += `<div class="px-4 py-2 rounded-2xl shadow-sm break-words relative z-10 ${bubbleBg}${isMe?'rounded-br-none':'rounded-bl-none'}">`;
             
@@ -253,12 +265,9 @@
             if (formattedText) html += `<span>${formattedText}</span>`;
             
             html += `</div>`;
-
-            // 表情符號顯示區
             html += `<div id="reactions-${msgId}" class="flex flex-wrap gap-1 mt-1 z-20 relative"></div>`;
             html += `</div>`;
 
-            // 星星按鈕 (Hover 時顯示)
             const starBtn = `<button class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-yellow-500 transition px-2 pb-4 text-xl" onclick="window.showStarMenu(event, '${msgId}', '${msg.name}', \`${msg.text ? msg.text.replace(/`/g, "'") : '[圖片]'}\`)">⭐</button>`;
             
             if (isMe) msgDiv.innerHTML = starBtn + html;
@@ -266,10 +275,9 @@
 
             chatMessages.appendChild(msgDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            updateMessageReactions(msgId, msg); // 初始化表情
+            updateMessageReactions(msgId, msg); 
         }
 
-        // 更新表情符號
         function updateMessageReactions(msgId, msg) {
             const container = document.getElementById(`reactions-${msgId}`);
             if (!container) return;
@@ -301,7 +309,7 @@
             if (imgBase64) payload.image = imgBase64;
             if (replyingTo) {
                 payload.replyTo = replyingTo;
-                window.cancelReply(); // 傳送後清空回覆狀態
+                window.cancelReply(); 
             }
 
             push(ref(db, `rooms/${currentRoomId}/messages`), payload);
@@ -311,26 +319,23 @@
         document.getElementById('btn-send').addEventListener('click', () => sendMessage());
         messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
         
-        // 傳送圖片
         document.getElementById('chat-img-input').addEventListener('change', (e) => {
             processImage(e.target.files[0], (base64) => {
                 sendMessage(base64);
-                e.target.value = ''; // 重置 input
+                e.target.value = ''; 
             });
         });
 
         // ====== 7. 星星選單、回覆與表情互動 ======
         window.showStarMenu = (event, msgId, name, text) => {
             currentSelectedMsgId = msgId;
-            replyingTo = { id: msgId, name: name, text: text }; // 暫存回覆對象
+            replyingTo = { id: msgId, name: name, text: text }; 
             
-            // 計算選單位置
             const rect = event.target.getBoundingClientRect();
             starMenu.style.left = `${rect.left}px`;
             starMenu.style.top = `${rect.top - 40}px`;
             starMenu.classList.remove('hidden');
             
-            // 點擊其他地方關閉選單
             setTimeout(() => {
                 document.addEventListener('click', function closeMenu() {
                     starMenu.classList.add('hidden');
@@ -340,7 +345,6 @@
         };
 
         window.triggerReply = () => {
-            // 顯示回覆預覽 UI
             document.getElementById('reply-preview').classList.remove('hidden');
             document.getElementById('reply-to-name').innerText = replyingTo.name;
             document.getElementById('reply-to-text').innerText = replyingTo.text;
@@ -359,7 +363,6 @@
             const reactRef = ref(db, `rooms/${currentRoomId}/messages/${targetId}/reactions/${emoji}/${myUserId}`);
             const snap = await get(reactRef);
             
-            // 如果已經按過就取消，沒按過就新增 (Toggle)
             if (snap.exists()) {
                 await remove(reactRef);
             } else {
@@ -398,8 +401,8 @@
         
         document.addEventListener('keyup', (e) => {
             if (document.body.classList.contains('secure-mode') && e.key === 'PrintScreen') {
-                navigator.clipboard.writeText('此聊天室已開啟機密模式，禁止截圖與外流。');
-                alert('⚠️ 房主已開啟機密模式，系統已嘗試攔截截圖操作！');
+                navigator.clipboard.writeText(`[系統警告] 此為機密聊天室，禁止截圖。觸發者：${myNickname} (${myUserId})`);
+                alert('⚠️ 系統已記錄您的截圖嘗試行為！');
             }
         });
 
