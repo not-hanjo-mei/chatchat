@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 
 import { JSDOM, VirtualConsole } from "jsdom";
 
+import { extractOverlayWatermark, markPayload } from "../assets/js/watermark.js";
+
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workdir = mkdtempSync(join(tmpdir(), "chatchat-e2e-"));
 
@@ -60,6 +62,13 @@ function buildBundle(tag) {
 }
 
 function setGlobal(name, value) {
+    /* Node 有些全域是唯讀 getter（例如 crypto），單純賦值會默默失敗，
+       所以先看屬性描述子，沒有 setter 就直接改寫。 */
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, name);
+    if (descriptor && !descriptor.set && !descriptor.writable) {
+        Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
+        return;
+    }
     try {
         globalThis[name] = value;
     } catch {
@@ -86,8 +95,18 @@ async function boot({ tag, session = null, lastInput = null, avatar = null, aler
     window.confirm = () => true;
     window.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
     window.scrollTo = () => {};
-    /* jsdom 沒有 2D context，直接回 null，省掉一堆 "Not implemented" 噪音 */
-    window.HTMLCanvasElement.prototype.getContext = () => null;
+    /* jsdom 沒有 2D context：頭像引擎那條路直接回 null（走降級路徑），
+       但標記層給一個真的畫布樁，這樣才驗得到「標記到底有沒有畫上去」。 */
+    window.HTMLCanvasElement.prototype.getContext = function getContext() {
+        if (this.id !== "mark-layer") return null;
+        this.__ctx ??= {
+            createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
+            putImageData: (image) => { this.__image = image; },
+            getImageData: (x, y, width, height) => this.__image
+                ?? { width, height, data: new Uint8ClampedArray(width * height * 4) },
+        };
+        return this.__ctx;
+    };
     if (session) window.sessionStorage.setItem("chatchat-session", JSON.stringify(session));
     if (lastInput) window.localStorage.setItem("chatchat-last-input", JSON.stringify(lastInput));
     if (avatar) window.localStorage.setItem("chatchat-avatar", avatar);
@@ -151,6 +170,18 @@ check("改暱稱不會拋錯（會記住上次輸入）", errors.length === 0, e
 const markLayer = $("mark-layer");
 check("畫面上有一層透明標記層", markLayer !== null && Number(markLayer.style.opacity) > 0 && Number(markLayer.style.opacity) < 0.1,
     markLayer ? markLayer.style.opacity : "找不到");
+
+/* crypto.randomUUID 是樁，所以使用者 ID 與標記內容可以事先算出來 */
+const USER_ID = "user_00000000000040008000";
+const expectedPayload = markPayload(USER_ID, "unknown");
+check("標記層真的被畫出來（有像素）", Boolean(markLayer.__image) && markLayer.__image.width > 256,
+    markLayer.__image ? `${markLayer.__image.width}x${markLayer.__image.height}` : "沒有像素");
+{
+    const drawn = markLayer.__image;
+    const recovered = drawn ? extractOverlayWatermark(drawn.data, drawn.width, drawn.height) : "(沒有像素)";
+    check("從畫出來的標記層解得回使用者標記", recovered === expectedPayload,
+        `解出 ${JSON.stringify(recovered)}`);
+}
 click($("btn-create"));
 await flush(14);
 

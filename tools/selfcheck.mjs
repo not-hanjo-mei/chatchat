@@ -213,7 +213,7 @@ check("太小的圖不寫，也不亂回東西", () => {
 check("不合規的標記內容直接拒絕", () => {
     const pixels = watermarkImage(640, 480);
     assert.equal(embedImageWatermark(pixels, 640, 480, "這是中文標記"), false);
-    assert.equal(embedImageWatermark(pixels, 640, 480, "x".repeat(40)), false);
+    assert.equal(embedImageWatermark(pixels, 640, 480, "x".repeat(60)), false);
 });
 
 /* ---------- 畫面疊層標記（canvas 疊在頁面上） ---------- */

@@ -26,12 +26,17 @@ const STEP_SECOND = 20;
 /* 低頻區塊的起伏門檻：低於它的區塊（大面積平色）不寫，避免出現方塊感。 */
 const MIN_ACTIVITY = 6;
 
-/* 固定長度的負載區塊：表頭 3 bytes + 最多 29 bytes 內容 = 32 bytes = 256 bits。
-   長度固定，取出端才能在不先知道長度的情況下對齊位元。 */
-const MAGIC = 0xa5;
-export const PAYLOAD_MAX = 29;
-const BLOCK_BYTES = 32;
+/* 固定長度的負載區塊：表頭 5 bytes + 最多 43 bytes 內容 = 48 bytes = 384 bits。
+   長度固定，取出端才能在不先知道長度的情況下對齊位元。
+
+   表頭刻意用 2 bytes 魔術數字 + 2 bytes 檢查碼：取出時會試 16 種格線相位與 384
+   種位元位移（幾千次嘗試），表頭太短會出現「驗證過了、但內容是錯的旋轉」這種
+   假陽性（真的發生過）。 */
+const MAGIC = [0xa5, 0x5a];
+const HEADER_BYTES = 5;
+const BLOCK_BYTES = 48;
 const BLOCK_BITS = BLOCK_BYTES * 8;
+export const PAYLOAD_MAX = BLOCK_BYTES - HEADER_BYTES;
 
 /* 打亂係數用的種子。公開在原始碼裡，只影響圖形樣式，不當成秘密。 */
 const SHUFFLE_SEED = 0x9e3779b9;
@@ -58,6 +63,17 @@ export function markPayload(userId, device = "unknown") {
     return `${fingerprint(userId).toString(36)}.${tag}`.slice(0, PAYLOAD_MAX);
 }
 
+/** 16 位元檢查碼（FNV-1a 取低 16 位）。取出時會試幾千種相位與位移，
+    表頭不夠長就會出現「驗證過但內容是錯的」這種假陽性，所以檢查碼不能省。 */
+function checksum16(bytes) {
+    let hash = 0x811c9dc5;
+    for (const byte of bytes) {
+        hash ^= byte;
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash & 0xffff;
+}
+
 /** 負載 → 位元陣列（固定 BLOCK_BITS 長）；不合格式回 null */
 function payloadBits(payload) {
     const encoded = new TextEncoder().encode(String(payload));
@@ -67,10 +83,13 @@ function payloadBits(payload) {
     }
 
     const block = new Uint8Array(BLOCK_BYTES);
-    block[0] = MAGIC;
-    block[1] = encoded.length;
-    block[2] = encoded.reduce((sum, byte) => (sum + byte) & 0xff, 0);
-    block.set(encoded, 3);
+    block[0] = MAGIC[0];
+    block[1] = MAGIC[1];
+    block[2] = encoded.length;
+    const check = checksum16(encoded);
+    block[3] = check >> 8;
+    block[4] = check & 0xff;
+    block.set(encoded, HEADER_BYTES);
 
     const bits = new Uint8Array(BLOCK_BITS);
     for (let i = 0; i < BLOCK_BITS; i++) bits[i] = (block[i >> 3] >> (7 - (i & 7))) & 1;
@@ -81,14 +100,14 @@ function payloadBits(payload) {
 function bitsToPayload(bits) {
     const block = new Uint8Array(BLOCK_BYTES);
     for (let i = 0; i < BLOCK_BITS; i++) block[i >> 3] |= bits[i] << (7 - (i & 7));
-    if (block[0] !== MAGIC) return "";
+    if (block[0] !== MAGIC[0] || block[1] !== MAGIC[1]) return "";
 
-    const length = block[1];
+    const length = block[2];
     if (length === 0 || length > PAYLOAD_MAX) return "";
 
-    const payload = block.slice(3, 3 + length);
-    const checksum = payload.reduce((sum, byte) => (sum + byte) & 0xff, 0);
-    return checksum === block[2] ? String.fromCharCode(...payload) : "";
+    const payload = block.slice(HEADER_BYTES, HEADER_BYTES + length);
+    const expected = (block[3] << 8) | block[4];
+    return checksum16(payload) === expected ? String.fromCharCode(...payload) : "";
 }
 
 /** 多數決：同一個位元被寫進很多區塊與三個通道，票多的贏 */
