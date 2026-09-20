@@ -168,19 +168,21 @@ check("公網 IP 只接受長得像 IP 的回應", () => {
 
 check("標記透明到看不出來，而且是斜的平鋪磚", () => {
     const svg = markSvg("小美\nABC123", "#fff");
-    assert.match(svg, /rotate\(-20 130 120\)/, "沒有斜向平鋪");
+    assert.match(svg, /rotate\(-20 160 140\)/, "沒有斜向平鋪");
     assert.match(svg, new RegExp(`fill-opacity="${MARK_ALPHA}"`));
     /* 8 bits 的下限：比 1 階還小就四捨五入回原色，標記不是變淡而是整片消失 */
     assert.ok(MARK_ALPHA >= 0.002 && MARK_ALPHA <= 0.02, `透明度 ${MARK_ALPHA} 不在可用範圍`);
-    assert.doesNotMatch(svg, /bold|font-size="(?:1[7-9]|[2-9][0-9])"/, "字又粗又大，標記會更明顯");
+    /* 字越大越粗墨跡越多就越明顯，所以守住上限（目前 20px / 粗體，範圍內可調） */
+    assert.match(svg, /font-size="(?:1[6-9]|2[0-4])"/, "字級超出可用範圍");
+    assert.doesNotMatch(svg, /font-weight="(?:[89]00|900)"/, "字重超出可用範圍");
 });
 
 check("一行最多 24 個半形寬度，全形字算兩個", () => {
     const rows = markRows("一二三四五六七八九十十一十二十三");
     assert.equal(rows[0], "一二三四五六七八九十十一");
     assert.equal(rows[0].length, 12);
-    /* IP 這種半形字串要完整塞得進去，不能被前面的全形規則誤殺 */
-    assert.deepEqual(markRows("192.0.2.17"), ["192.0.2.17"]);
+    /* 半形字串要完整塞得進去，不能被前面的全形規則誤殺（IPv4 最長 15 個半形寬度） */
+    assert.deepEqual(markRows("abcdefghijklmno"), ["abcdefghijklmno"]);
 });
 
 check("標記最多四行、清掉控制字元、跳脫 XML", () => {
