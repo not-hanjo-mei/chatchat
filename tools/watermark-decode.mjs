@@ -22,19 +22,14 @@ import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-    SCALE_CANDIDATES,
-    extractImageWatermark,
-    extractTextMark,
-    fingerprint,
-} from "../assets/js/watermark.js";
+import { SCALE_CANDIDATES, extractImageWatermark, extractTextMark } from "../assets/js/watermark.js";
 
 const argv = process.argv.slice(2).filter((value) => value !== "--text");
 const asText = process.argv.includes("--text") || /\.(txt|md|json)$/i.test(argv[0] ?? "");
-const [imagePath, rosterPath] = argv;
+const [imagePath] = argv;
 if (!imagePath) {
-    console.error("用法：node tools/watermark-decode.mjs 圖檔 [名單檔]");
-    console.error("      node tools/watermark-decode.mjs --text 文字檔 [名單檔]");
+    console.error("用法：node tools/watermark-decode.mjs 圖檔");
+    console.error("      node tools/watermark-decode.mjs --text 文字檔");
     process.exit(2);
 }
 if (!existsSync(imagePath)) {
@@ -42,22 +37,9 @@ if (!existsSync(imagePath)) {
     process.exit(2);
 }
 
-/* 名單（一行一個使用者 ID）用來把指紋還原成是誰 */
 function report(payload, how) {
     console.log(`結果：找到標記「${payload}」（${how}）`);
-    const [tag, device] = payload.split(".");
-    console.log(`  - 使用者 ID 指紋：${tag}`);
-    console.log(`  - 裝置：${device || "unknown"}`);
-
-    if (!rosterPath || !existsSync(rosterPath)) {
-        console.log("提示：給一份成員名單檔，就能比對出這是誰的標記。");
-        return;
-    }
-    const names = readFileSync(rosterPath, "utf8").split("\n").map((line) => line.trim()).filter(Boolean);
-    const matched = names.filter((name) => fingerprint(name).toString(36) === tag);
-    console.log(matched.length > 0
-        ? `  - 對應成員：${matched.join("、")}`
-        : "  - 名單裡沒有人的指紋符合（可能不是名單上的人，或名單不完整）。");
+    console.log("  - 這是留下標記那台裝置的標籤（機型＋裝置指紋），對照畫面上的浮水印即可知道是誰。");
 }
 
 if (asText) {

@@ -19,22 +19,35 @@
 const BLOCK_SIDE = 4;
 const BLOCK_VALUES = BLOCK_SIDE * BLOCK_SIDE;
 
-/* QIM 的量化間距。越大越耐壓縮，越大也越容易看出痕跡。 */
-const STEP_MAIN = 36;
-const STEP_SECOND = 20;
+/*
+ * QIM 的量化間距（越大越耐攻擊、越容易看出痕跡）。實測（SSIM 對照表）：
+ *   36/20 → SSIM 0.88，連 WebP q60 都撐得住
+ *   20/11 → SSIM 0.955，WebP q82、JPEG、加邊框、裁切、±3% 縮放都過（本專案用這組）
+ *   18/10 → SSIM 0.963，但 WebP q82 就掛了
+ */
+const STEP_MAIN = 20;
+const STEP_SECOND = 11;
 
-/* 低頻區塊的起伏門檻：低於它的區塊（大面積平色）不寫，避免出現方塊感。 */
-const MIN_ACTIVITY = 6;
+/*
+ * 低頻區塊的起伏門檻。0 ＝ 每個區塊都寫。
+ * 實測：只要門檻 ≥ 2，裁剪與縮放就失效（平色區的票是撐過格線位移的關鍵），
+ * 所以這裡刻意不跳過任何區塊，改用較小的量化間距來控制可見度。
+ */
+const MIN_ACTIVITY = 0;
 
-/* 固定長度的負載區塊：表頭 5 bytes + 最多 43 bytes 內容 = 48 bytes = 384 bits。
-   長度固定，取出端才能在不先知道長度的情況下對齊位元。
-
-   表頭刻意用 2 bytes 魔術數字 + 2 bytes 檢查碼：取出時會試 16 種格線相位與 384
-   種位元位移（幾千次嘗試），表頭太短會出現「驗證過了、但內容是錯的旋轉」這種
-   假陽性（真的發生過）。 */
+/*
+ * 固定長度的負載區塊：表頭 4 bytes + 最多 12 bytes 內容 = 16 bytes = 128 bits。
+ * 內容就是設備標籤（機型＋裝置指紋），例如 "SM-G99-3k9v2"。
+ *
+ * 為什麼這麼短：位元數直接決定每張圖每個位元能分到幾票。實測 640x480 的圖在
+ * 裁切 30% 之後，384 bits 每個位元只剩 37 票會失敗；128 bits 票數是三倍，就過。
+ *
+ * 表頭用 2 bytes 魔術數字 + 1 byte 檢查碼：取出時會掃多個倍率（幾十次嘗試），
+ * 表頭太短會出現「驗證過了、但內容是錯的」這種假陽性。
+ */
 const MAGIC = [0xa5, 0x5a];
-const HEADER_BYTES = 5;
-const BLOCK_BYTES = 48;
+const HEADER_BYTES = 4;
+const BLOCK_BYTES = 16;
 const BLOCK_BITS = BLOCK_BYTES * 8;
 export const PAYLOAD_MAX = BLOCK_BYTES - HEADER_BYTES;
 
@@ -43,35 +56,23 @@ const SHUFFLE_SEED = 0x9e3779b9;
 
 /* ---------------- 負載編碼 ---------------- */
 
-/** 32 位元指紋（FNV-1a）。取出端用同一函式比對名單，找出是誰留下的。 */
-export function fingerprint(text) {
-    let hash = 0x811c9dc5;
-    for (const char of String(text)) {
-        hash ^= char.codePointAt(0);
-        hash = Math.imul(hash, 0x01000193) >>> 0;
-    }
-    return hash >>> 0;
-}
-
 /**
- * 標記內容：使用者 ID 的指紋 + 設備型號。
- * 指紋是把 ID 壓成 6~7 個 base36 字元（32 位元），長度短才塞得進圖片與頁面標記；
- * 取出後用 tools/watermark-decode.mjs 比對成員名單就能還原成是誰。
+ * 標記內容：只有設備標籤（機型＋裝置指紋），例如 "SM-G99-3k9v2"。
+ * 不放使用者 ID：裝置指紋本身就能對到人，而且在畫面上要看得懂。
  */
-export function markPayload(userId, device = "unknown") {
-    const tag = String(device ?? "").replace(/[^A-Za-z0-9._-]+/g, "").slice(0, 20) || "unknown";
-    return `${fingerprint(userId).toString(36)}.${tag}`.slice(0, PAYLOAD_MAX);
+export function markPayload(device = "unknown") {
+    const tag = String(device ?? "").replace(/[^A-Za-z0-9._-]+/g, "").slice(0, PAYLOAD_MAX);
+    return tag || "unknown";
 }
 
-/** 16 位元檢查碼（FNV-1a 取低 16 位）。取出時會試幾千種相位與位移，
-    表頭不夠長就會出現「驗證過但內容是錯的」這種假陽性，所以檢查碼不能省。 */
-function checksum16(bytes) {
+/** 8 位元檢查碼（FNV-1a 取低 8 位），擋掉錯的倍率與雜訊造成的假陽性 */
+function checksum8(bytes) {
     let hash = 0x811c9dc5;
     for (const byte of bytes) {
         hash ^= byte;
         hash = Math.imul(hash, 0x01000193) >>> 0;
     }
-    return hash & 0xffff;
+    return hash & 0xff;
 }
 
 /** 負載 → 位元陣列（固定 BLOCK_BITS 長）；不合格式回 null */
@@ -86,9 +87,7 @@ function payloadBits(payload) {
     block[0] = MAGIC[0];
     block[1] = MAGIC[1];
     block[2] = encoded.length;
-    const check = checksum16(encoded);
-    block[3] = check >> 8;
-    block[4] = check & 0xff;
+    block[3] = checksum8(encoded);
     block.set(encoded, HEADER_BYTES);
 
     const bits = new Uint8Array(BLOCK_BITS);
@@ -106,8 +105,7 @@ function bitsToPayload(bits) {
     if (length === 0 || length > PAYLOAD_MAX) return "";
 
     const payload = block.slice(HEADER_BYTES, HEADER_BYTES + length);
-    const expected = (block[3] << 8) | block[4];
-    return checksum16(payload) === expected ? String.fromCharCode(...payload) : "";
+    return checksum8(payload) === block[3] ? String.fromCharCode(...payload) : "";
 }
 
 /*
@@ -115,7 +113,14 @@ function bitsToPayload(bits) {
  * 這樣「旁邊被加了東西」「被裁掉一塊」「整體位移」都只是讓磚的起點移動，
  * 解碼端搜尋 384 種 2D 位移就能對回來——不能像連續序號那樣一位移就全毀。
  */
-const TILE_COLUMNS = 24;
+/* 磚的寬度必須整除位元數，否則「哪個位元放哪個區塊」會算錯。
+   挑一個接近方形、又整除的寬度，之後改負載長度也不會默默壞掉。 */
+const TILE_COLUMNS = (() => {
+    for (const candidate of [24, 20, 16, 12, 8, 6, 4, 2, 1]) {
+        if (BLOCK_BITS % candidate === 0) return candidate;
+    }
+    return 1;
+})();
 const TILE_ROWS = BLOCK_BITS / TILE_COLUMNS;
 
 function tileSlot(row, column) {
@@ -465,6 +470,9 @@ export const SCALE_CANDIDATES = (() => {
     return [1, ...near.filter((value) => Math.abs(value - 1) > 0.005), ...far];
 })();
 
+/* 每個位元至少要有這麼多票，否則小圖寫了也取不回，乾脆不寫 */
+const MIN_VOTES_PER_BIT = 4;
+
 function blockCount(width, height) {
     const layout = blockLayout(width, height);
     return layout.columns * layout.rows;
@@ -477,7 +485,7 @@ function blockCount(width, height) {
  * @returns {boolean} 是否寫進去（圖太小或負載不合法就不寫）
  */
 export function embedImageWatermark(pixels, width, height, payload, { stepMain = STEP_MAIN, stepSecond = STEP_SECOND, minActivity = MIN_ACTIVITY } = {}) {
-    if (blockCount(width, height) < BLOCK_BITS) return false;
+    if (blockCount(width, height) < BLOCK_BITS * MIN_VOTES_PER_BIT) return false;
     const bits = payloadBits(payload);
     if (!bits) return false;
 
@@ -541,46 +549,62 @@ export function extractImageWatermark(pixels, width, height, { stepMain = STEP_M
 }
 
 function extractImageWatermarkOnce(pixels, width, height, { stepMain, stepSecond, minActivity }) {
-    if (blockCount(width, height) < BLOCK_BITS) return "";
+    if (blockCount(width, height) < BLOCK_BITS * MIN_VOTES_PER_BIT) return "";
 
     const planes = toYuv(pixels, width, height);
     const layout = blockLayout(width, height);
-    const ones = new Float64Array(BLOCK_BITS);
-    const counts = new Float64Array(BLOCK_BITS);
+    const coeff = new Float64Array(BLOCK_VALUES);
+    const shuffled = new Float64Array(BLOCK_VALUES);
     const permuted = new Float64Array(BLOCK_VALUES);
 
-    for (const plane of planes) {
-        const { low } = haarForward(plane, width, height);
-        const coeff = new Float64Array(BLOCK_VALUES);
-        const shuffled = new Float64Array(BLOCK_VALUES);
+    /*
+     * 格線相位：裁切或位移不會剛好落在 4 的倍數上，區塊就會跨到隔壁。
+     * 這裡逐一試 16 種相位（先用 (0,0)，常見情況一次就中）。
+     */
+    for (let phaseRow = 0; phaseRow < BLOCK_SIDE; phaseRow += 1) {
+        for (let phaseColumn = 0; phaseColumn < BLOCK_SIDE; phaseColumn += 1) {
+            const ones = new Float64Array(BLOCK_BITS);
+            const counts = new Float64Array(BLOCK_BITS);
 
-        for (let row = 0; row < layout.rows; row++) {
-            for (let column = 0; column < layout.columns; column++) {
-                if (minActivity && blockActivity(low, layout.halfWidth, row, column) < minActivity) continue;
+            for (const plane of planes) {
+                const { low } = haarForward(plane, width, height);
 
-                for (let i = 0; i < BLOCK_VALUES; i++) {
-                    coeff[i] = low[(row * BLOCK_SIDE + Math.floor(i / BLOCK_SIDE)) * layout.halfWidth + column * BLOCK_SIDE + (i % BLOCK_SIDE)];
+                for (let originRow = phaseRow; (originRow + BLOCK_SIDE) <= layout.halfHeight; originRow += BLOCK_SIDE) {
+                    for (let originColumn = phaseColumn; (originColumn + BLOCK_SIDE) <= layout.halfWidth; originColumn += BLOCK_SIDE) {
+                        if (minActivity && blockActivity(low, layout.halfWidth, originRow, originColumn) < minActivity) continue;
+
+                        for (let i = 0; i < BLOCK_VALUES; i++) {
+                            coeff[i] = low[(originRow + Math.floor(i / BLOCK_SIDE)) * layout.halfWidth + originColumn + (i % BLOCK_SIDE)];
+                        }
+                        blockTransform(coeff, shuffled, false);
+                        for (let i = 0; i < BLOCK_VALUES; i++) permuted[i] = shuffled[ORDER[i]];
+
+                        const { s } = svd4(permuted);
+                        let vote = s[0] % stepMain > stepMain / 2 ? 1 : 0;
+                        if (stepSecond) {
+                            const second = s[1] % stepSecond > stepSecond / 2 ? 1 : 0;
+                            vote = (vote * 3 + second) / 4;
+                        }
+
+                        const slot = tileSlot((originRow - phaseRow) / BLOCK_SIDE, (originColumn - phaseColumn) / BLOCK_SIDE);
+                        ones[slot] += vote;
+                        counts[slot] += 1;
+                    }
                 }
-                blockTransform(coeff, shuffled, false);
-                for (let i = 0; i < BLOCK_VALUES; i++) permuted[i] = shuffled[ORDER[i]];
-
-                const { s } = svd4(permuted);
-                let vote = s[0] % stepMain > stepMain / 2 ? 1 : 0;
-                if (stepSecond) {
-                    const second = s[1] % stepSecond > stepSecond / 2 ? 1 : 0;
-                    vote = (vote * 3 + second) / 4;
-                }
-
-                const slot = tileSlot(row, column);
-                ones[slot] += vote;
-                counts[slot] += 1;
             }
+
+            const payload = readTiledPayload(ones, counts);
+            if (payload) return payload;
         }
     }
 
-    return readTiledPayload(ones, counts);
+    return "";
 }
 
+/**
+ * 把標記寫進 RGBA 像素（就地改寫）。
+ * @returns {boolean} 是否寫進去（圖太小或負載不合法就不寫）
+ */
 /* ==========================================================================
    文字用的隱形標記
    --------------------------------------------------------------------------

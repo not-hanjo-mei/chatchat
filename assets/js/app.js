@@ -383,7 +383,7 @@ async function prepareImage(file, maxSide, { mark = false } = {}) {
 function stampImage(context, width, height) {
     try {
         const snapshot = context.getImageData(0, 0, width, height);
-        const payload = markPayload(state.userId, currentDeviceTag());
+        const payload = markPayload(currentDeviceTag());
         if (embedImageWatermark(snapshot.data, width, height, payload)) context.putImageData(snapshot, 0, 0);
     } catch (error) {
         console.warn("圖片標記失敗，改用原圖：", error.message);
@@ -532,7 +532,6 @@ el.roomIdInput.addEventListener("change", rememberLastInput);
 /* 暱稱一改就換一張對應的頭像，讓使用者知道名字決定臉 */
 el.nicknameInput.addEventListener("input", () => {
     setHidden(el.avatarPreview, false);
-    updateScreenMark(el.nicknameInput.value);
     applyAvatar(el.avatarPreview, el.nicknameInput.value, state.avatar, AVATAR_SIDE);
 });
 
@@ -884,7 +883,7 @@ function renderMessage(msgId, rawMessage) {
  */
 function renderRichText(text) {
     const fragment = document.createDocumentFragment();
-    const marked = embedTextMark(text, markPayload(state.userId, currentDeviceTag()));
+    const marked = embedTextMark(text, markPayload(currentDeviceTag()));
 
     for (const part of marked.split(/(@\S+)/g)) {
         if (part.startsWith("@") && part.length > 1) {
@@ -1494,7 +1493,7 @@ function openReadModal(postId, data) {
     el.readTime.textContent = formatTime(data.timestamp);
     el.readText.textContent = embedTextMark(
         cleanText(data.text, MAX_POST),
-        markPayload(state.userId, currentDeviceTag()),
+        markPayload(currentDeviceTag()),
     );
     el.replyInput.value = "";
     autoResize(el.replyInput);
@@ -1637,8 +1636,7 @@ autoResizeAll();
 prefillInputs();
 state.avatar = readStoredAvatar();
 syncAvatarControls();
-const updateScreenMark = startScreenMark(el.markLayer);
-updateScreenMark(state.nickname);
+startScreenMark(el.markLayer);
 applyAvatar(el.avatarPreview, el.nicknameInput.value, state.avatar, AVATAR_SIDE);
 applyAvatar(el.heroAvatar, "ChatChat", "", 192);
 void restoreSession();

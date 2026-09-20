@@ -17,19 +17,21 @@ const MARK_COUNT = 9;
 /* 三組動畫輪流用，讓它們不同步 */
 const MOTIONS = ["mark-drift-a", "mark-drift-b", "mark-drift-c"];
 
-/** 浮水印文字：暱稱（沒有就用「匿名」）＋ 裝置標籤 */
-export function markLabel(nickname, device) {
-    const name = String(nickname ?? "").trim() || "匿名";
+/** 浮水印文字：只有裝置標籤（機型＋裝置指紋） */
+export function markLabel(device) {
     const tag = String(device ?? "").trim() || "unknown";
-    return `${name} · ${tag}`;
+    return tag;
 }
 
-/** 裝置標籤：機型（可讀）＋ canvas 指紋（認得出是哪一台） */
+/**
+ * 裝置標籤：機型（可讀）＋ canvas 指紋（認得出是哪一台）。
+ * 整個標記只有 12 bytes 可用，所以有指紋時機型只留 5 字（5+1+5）。
+ */
 export function deviceTag(userAgent, canvas) {
-    const model = deviceModel(userAgent).replace(/[^A-Za-z0-9._-]/g, "").slice(0, 12);
+    const model = deviceModel(userAgent).replace(/[^A-Za-z0-9._-]/g, "");
     const signature = canvasSignature(canvas);
-    if (!signature) return model || "unknown";
-    return model ? `${model}-${signature}` : signature;
+    if (!signature) return model.slice(0, 12) || "unknown";
+    return `${model.slice(0, 5)}-${signature}`;
 }
 
 /**
@@ -80,7 +82,7 @@ export function canvasSignature(canvas) {
         hash ^= byte;
         hash = Math.imul(hash, 0x01000193) >>> 0;
     }
-    return hash.toString(36);
+    return hash.toString(36).slice(0, 5);
 }
 
 /* 同一台裝置每次算出來都一樣，算一次就夠 */
@@ -96,11 +98,11 @@ export function currentDeviceTag() {
 }
 
 /**
- * 在容器裡鋪好浮水印文字並開始飄動。回傳「更新暱稱」的函式。
+ * 在容器裡鋪好浮水印文字並開始飄動。
  * @param {HTMLElement} container 覆蓋整個畫面的容器
  */
 export function startScreenMark(container) {
-    if (!container) return () => {};
+    if (!container) return;
 
     const marks = [];
     for (let index = 0; index < MARK_COUNT; index += 1) {
@@ -116,8 +118,6 @@ export function startScreenMark(container) {
         marks.push(mark);
     }
 
-    return function update(nickname) {
-        const text = markLabel(nickname, currentDeviceTag());
-        for (const mark of marks) mark.textContent = text;
-    };
+    const text = markLabel(currentDeviceTag());
+    for (const mark of marks) mark.textContent = text;
 }

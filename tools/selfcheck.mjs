@@ -10,7 +10,6 @@ import {
     embedTextMark,
     extractImageWatermark,
     extractTextMark,
-    fingerprint,
     markPayload,
     PAYLOAD_MAX as PAYLOAD_MAX_PUBLIC,
 } from "../assets/js/watermark.js";
@@ -148,14 +147,13 @@ function watermarkImage(width, height) {
     return pixels;
 }
 
-check("標記內容是使用者指紋加裝置標籤", () => {
-    assert.equal(markPayload("user_mayo_audit", "SM-G991B"), "wd64d9.SM-G991B");
-    assert.equal(markPayload("user_mayo_audit"), "wd64d9.unknown");
-    assert.equal(markPayload("user_mayo_audit", "中文機型！"), "wd64d9.unknown");
-    assert.equal(fingerprint("mayonnaise"), 3621736253);
-    const longest = markPayload("mai" + "x".repeat(400), "SM-G991B-1234567890");
-    assert.ok(longest.length <= PAYLOAD_MAX_PUBLIC, `標記長度 ${longest.length} 超過上限`);
-    assert.ok(longest.endsWith("SM-G991B-1234567890".slice(0, 20)), `裝置標籤被截掉了：${longest}`);
+check("標記內容只有設備標籤，超長會截斷", () => {
+    assert.equal(markPayload("SM-G99-3k9v2"), "SM-G99-3k9v2");
+    assert.equal(markPayload(""), "unknown");
+    assert.equal(markPayload("中文機型！"), "unknown");
+    const longest = markPayload("SM-G991B-1234567890");
+    assert.equal(longest.length, PAYLOAD_MAX_PUBLIC);
+    assert.equal(longest, "SM-G991B-123");
 });
 
 check("機型從 user agent 抓得出來，抓不到就說 unknown", () => {
@@ -169,14 +167,14 @@ check("機型從 user agent 抓得出來，抓不到就說 unknown", () => {
 
 check("寫進圖片再取出來，內容一致", () => {
     const pixels = watermarkImage(640, 480);
-    assert.ok(embedImageWatermark(pixels, 640, 480, "wd64d9.SM-G991B"), "寫不進去");
-    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.SM-G991B");
+    assert.ok(embedImageWatermark(pixels, 640, 480, "SM-G99-3k9v2"), "寫不進去");
+    assert.equal(extractImageWatermark(pixels, 640, 480), "SM-G99-3k9v2");
 });
 
 check("標記改動幅度小到看不出來", () => {
     const before = watermarkImage(640, 480);
     const after = Uint8ClampedArray.from(before);
-    embedImageWatermark(after, 640, 480, "wd64d9.SM-G991B");
+    embedImageWatermark(after, 640, 480, "SM-G99-3k9v2");
     let total = 0;
     let worst = 0;
     for (let i = 0; i < after.length; i += 4) {
@@ -190,14 +188,14 @@ check("標記改動幅度小到看不出來", () => {
 
 check("加一點雜訊後仍取得回標記", () => {
     const pixels = watermarkImage(640, 480);
-    embedImageWatermark(pixels, 640, 480, "wd64d9.SM-G991B");
+    embedImageWatermark(pixels, 640, 480, "SM-G99-3k9v2");
     let seed = 5;
     const random = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
     for (let i = 0; i < pixels.length; i++) {
         if (i % 4 === 3) continue;
         pixels[i] = Math.max(0, Math.min(255, pixels[i] + Math.round((random() - 0.5) * 12)));
     }
-    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.SM-G991B");
+    assert.equal(extractImageWatermark(pixels, 640, 480), "SM-G99-3k9v2");
 });
 
 check("沒寫標記的圖取不到東西", () => {
@@ -205,9 +203,10 @@ check("沒寫標記的圖取不到東西", () => {
 });
 
 check("太小的圖不寫，也不亂回東西", () => {
-    const pixels = watermarkImage(96, 96);
-    assert.equal(embedImageWatermark(pixels, 96, 96, "wd64d9.SM-G991B"), false);
-    assert.equal(extractImageWatermark(pixels, 96, 96), "");
+    /* 每個位元至少要 4 票，太小的圖票數不足，寫了也取不回 */
+    const pixels = watermarkImage(160, 160);
+    assert.equal(embedImageWatermark(pixels, 160, 160, "SM-G99-3k9v2"), false);
+    assert.equal(extractImageWatermark(pixels, 160, 160), "");
 });
 
 check("不合規的標記內容直接拒絕", () => {
@@ -218,22 +217,22 @@ check("不合規的標記內容直接拒絕", () => {
 
 /* ---------- 文字隱形標記（複製貼上會帶走的那一層） ---------- */
 check("訊息文字裡插得進隱形標記，取出來一致", () => {
-    const marked = embedTextMark("明天見", "wd64d9.SM-G991B");
-    assert.equal(extractTextMark(marked), "wd64d9.SM-G991B");
+    const marked = embedTextMark("明天見", "SM-G99-3k9v2");
+    assert.equal(extractTextMark(marked), "SM-G99-3k9v2");
 });
 
 check("標記不改變看得見的文字", () => {
     const original = "這是一則測試訊息，含表情 😀 與標點。";
-    const marked = embedTextMark(original, "wd64d9.SM-G991B");
+    const marked = embedTextMark(original, "SM-G99-3k9v2");
     assert.ok(marked.length > original.length, "沒有插入任何字元");
     /* 把零寬字元拿掉之後，必須與原文一字不差 */
     assert.equal(marked.replace(/[\u200b\u200c\u200d\u2060]/g, ""), original);
 });
 
 check("長訊息會重複寫好幾份，短訊息也能取回", () => {
-    const long = embedTextMark("a".repeat(600), "wd64d9.SM-G991B");
-    assert.equal(extractTextMark(long), "wd64d9.SM-G991B");
-    assert.equal(extractTextMark(embedTextMark("嗨", "wd64d9.SM-G991B")), "wd64d9.SM-G991B");
+    const long = embedTextMark("a".repeat(600), "SM-G99-3k9v2");
+    assert.equal(extractTextMark(long), "SM-G99-3k9v2");
+    assert.equal(extractTextMark(embedTextMark("嗨", "SM-G99-3k9v2")), "SM-G99-3k9v2");
 });
 
 check("乾淨的文字取不到東西", () => {

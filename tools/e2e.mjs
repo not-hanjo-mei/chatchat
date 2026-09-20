@@ -160,7 +160,7 @@ check("改暱稱不會拋錯（會記住上次輸入）", errors.length === 0, e
 const markLayer = $("mark-layer");
 const markTexts = markLayer ? Array.from(markLayer.querySelectorAll(".mark-text")) : [];
 check("畫面上有飄動的浮水印文字", markTexts.length >= 5, String(markTexts.length));
-check("浮水印顯示暱稱與裝置", markTexts[0]?.textContent === "匿名 · unknown", markTexts[0]?.textContent ?? "");
+check("浮水印顯示裝置標籤", markTexts[0]?.textContent === "unknown", markTexts[0]?.textContent ?? "");
 click($("btn-create"));
 await flush(14);
 
@@ -189,8 +189,7 @@ check("訊息出現在畫面上", $("chat-messages").textContent.includes("hello
 
 /* 訊息文字進畫面時會插入零寬字元的標記：複製出去就帶著「誰看的」 */
 {
-    const USER_ID = "user_00000000000040008000";
-    const expected = markPayload(USER_ID, "unknown");
+    const expected = markPayload("unknown");
     const bubble = document.querySelector(".bubble");
     const shown = bubble?.textContent ?? "";
     const strip = (value) => value.replace(/[\u200b\u200c\u200d\u2060]/g, "");
