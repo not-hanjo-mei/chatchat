@@ -4,19 +4,12 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
-import { deviceModel } from "../assets/js/sanitize.js";
-import {
-    embedImageWatermark,
-    embedTextMark,
-    extractImageWatermark,
-    extractTextMark,
-    markPayload,
-    PAYLOAD_MAX as PAYLOAD_MAX_PUBLIC,
-} from "../assets/js/watermark.js";
+import { pageMarkImage, MARK_ALPHA } from "../assets/js/watermark.js";
 import {
     cleanName,
     cleanText,
     createRateLimiter,
+    deviceModel,
     escapeXml,
     formatRateLimitNotice,
     isValidRoomId,
@@ -24,6 +17,7 @@ import {
     makeRoomCode,
     safeEmoji,
     safeImageSrc,
+    safeIp,
     safeTimestamp,
     MAX_NAME,
 } from "../assets/js/sanitize.js";
@@ -128,116 +122,72 @@ check("SVG 文字有跳脫，無法提早關閉 <text> 標籤", () => {
     assert.equal(escapeXml('say "hi"'), "say &quot;hi&quot;");
 });
 
-/* ---------- 圖片盲水印 ---------- */
-/* 用固定種子的合成紋理圖，不依賴瀏覽器 canvas 或外部檔案。 */
-function watermarkImage(width, height) {
-    const pixels = new Uint8ClampedArray(width * height * 4);
-    let seed = 20260920;
-    const random = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const at = (y * width + x) * 4;
-            const base = 120 + 40 * Math.sin(x / 9) * Math.cos(y / 7) + random() * 24;
-            pixels[at] = base;
-            pixels[at + 1] = base * 0.9 + 10;
-            pixels[at + 2] = base * 0.75 + 25;
-            pixels[at + 3] = 255;
-        }
-    }
-    return pixels;
+/* ---------- 頁面標記（整頁平鋪的明文小字） ---------- */
+/* 標記是純字串，不依賴 DOM 或 canvas，所以直接驗字串內容。 */
+const MARK_URL = /^url\("data:image\/svg\+xml,/;
+
+function markSvg(text, ink) {
+    const image = pageMarkImage(text, ink);
+    assert.match(image, MARK_URL, "標記圖不是 SVG data URL");
+    return decodeURIComponent(image.replace(MARK_URL, "").replace(/"\)$/, ""));
 }
 
-check("標記內容只有設備標籤，超長會截斷", () => {
-    assert.equal(markPayload("SM-G99-3k9v2"), "SM-G99-3k9v2");
-    assert.equal(markPayload(""), "unknown");
-    assert.equal(markPayload("中文機型！"), "unknown");
-    const longest = markPayload("SM-G991B-1234567890");
-    assert.equal(longest.length, PAYLOAD_MAX_PUBLIC);
-    assert.equal(longest, "SM-G991B-123");
+function markRows(text, ink) {
+    return [...markSvg(text, ink).matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
+}
+
+check("標記是看得懂的明文：暱稱、房號、機型、IP 各一行", () => {
+    assert.deepEqual(markRows("小美\nABC123\nSM-G991B\n192.0.2.17"),
+        ["小美", "ABC123", "SM-G991B", "192.0.2.17"]);
+    assert.deepEqual(markRows("小美\n\nSM-G991B"), ["小美", "SM-G991B"]);
+    assert.deepEqual(markRows("小美"), ["小美"]);
+    assert.deepEqual(markRows("\n\n"), ["unknown"]);
 });
 
-check("機型從 user agent 抓得出來，抓不到就說 unknown", () => {
+check("機型從 user agent 抓得出來，抓不到就說平台名", () => {
     assert.equal(deviceModel("Mozilla/5.0 (Linux; Android 13; SM-G991B Build/TP1A) Chrome/120"), "SM-G991B");
     assert.equal(deviceModel("Mozilla/5.0 (Linux; Android 12; V2166A; wv) Chrome/120"), "V2166A");
     assert.equal(deviceModel("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"), "iPhone");
     assert.equal(deviceModel("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120"), "Windows");
     assert.equal(deviceModel(""), "unknown");
     assert.equal(deviceModel(undefined), "unknown");
+    /* Chrome 110 之後 Android 的 UA 被縮減成「Android 10; K」，只能靠 Client Hints 補回來 */
+    assert.equal(deviceModel("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/120"), "K");
+    assert.equal(deviceModel("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/120", "SM-S911B"), "SM-S911B");
+    assert.equal(deviceModel("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", "  "), "iPhone");
 });
 
-check("寫進圖片再取出來，內容一致", () => {
-    const pixels = watermarkImage(640, 480);
-    assert.ok(embedImageWatermark(pixels, 640, 480, "SM-G99-3k9v2"), "寫不進去");
-    assert.equal(extractImageWatermark(pixels, 640, 480), "SM-G99-3k9v2");
+check("公網 IP 只接受長得像 IP 的回應", () => {
+    assert.equal(safeIp("192.0.2.17"), "192.0.2.17");
+    assert.equal(safeIp(" 2001:0db8:85a3::8a2e:0370:7334 "), "2001:0db8:85a3::8a2e:0370:7334");
+    assert.equal(safeIp("1.2.3.4.5"), "");
+    assert.equal(safeIp("</text><script>alert(1)</script>"), "");
+    assert.equal(safeIp(""), "");
+    assert.equal(safeIp(undefined), "");
 });
 
-check("標記改動幅度小到看不出來", () => {
-    const before = watermarkImage(640, 480);
-    const after = Uint8ClampedArray.from(before);
-    embedImageWatermark(after, 640, 480, "SM-G99-3k9v2");
-    let total = 0;
-    let worst = 0;
-    for (let i = 0; i < after.length; i += 4) {
-        const delta = Math.abs(after[i] - before[i]);
-        total += delta;
-        if (delta > worst) worst = delta;
-    }
-    assert.ok(total / (after.length / 4) < 8, `平均差 ${total / (after.length / 4)} 過大`);
-    assert.ok(worst <= 40, `最大差 ${worst} 過大`);
+check("標記透明到看不出來，而且是斜的平鋪磚", () => {
+    const svg = markSvg("小美\nABC123", "#fff");
+    assert.match(svg, /rotate\(-20 130 120\)/, "沒有斜向平鋪");
+    assert.match(svg, new RegExp(`fill-opacity="${MARK_ALPHA}"`));
+    /* 8 bits 的下限：比 1 階還小就四捨五入回原色，標記不是變淡而是整片消失 */
+    assert.ok(MARK_ALPHA >= 0.002 && MARK_ALPHA <= 0.02, `透明度 ${MARK_ALPHA} 不在可用範圍`);
+    assert.doesNotMatch(svg, /bold|font-size="(?:1[7-9]|[2-9][0-9])"/, "字又粗又大，標記會更明顯");
 });
 
-check("加一點雜訊後仍取得回標記", () => {
-    const pixels = watermarkImage(640, 480);
-    embedImageWatermark(pixels, 640, 480, "SM-G99-3k9v2");
-    let seed = 5;
-    const random = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
-    for (let i = 0; i < pixels.length; i++) {
-        if (i % 4 === 3) continue;
-        pixels[i] = Math.max(0, Math.min(255, pixels[i] + Math.round((random() - 0.5) * 12)));
-    }
-    assert.equal(extractImageWatermark(pixels, 640, 480), "SM-G99-3k9v2");
+check("一行最多 24 個半形寬度，全形字算兩個", () => {
+    const rows = markRows("一二三四五六七八九十十一十二十三");
+    assert.equal(rows[0], "一二三四五六七八九十十一");
+    assert.equal(rows[0].length, 12);
+    /* IP 這種半形字串要完整塞得進去，不能被前面的全形規則誤殺 */
+    assert.deepEqual(markRows("192.0.2.17"), ["192.0.2.17"]);
 });
 
-check("沒寫標記的圖取不到東西", () => {
-    assert.equal(extractImageWatermark(watermarkImage(640, 480), 640, 480), "");
-});
-
-check("太小的圖不寫，也不亂回東西", () => {
-    /* 每個位元至少要 4 票，太小的圖票數不足，寫了也取不回 */
-    const pixels = watermarkImage(160, 160);
-    assert.equal(embedImageWatermark(pixels, 160, 160, "SM-G99-3k9v2"), false);
-    assert.equal(extractImageWatermark(pixels, 160, 160), "");
-});
-
-check("不合規的標記內容直接拒絕", () => {
-    const pixels = watermarkImage(640, 480);
-    assert.equal(embedImageWatermark(pixels, 640, 480, "這是中文標記"), false);
-    assert.equal(embedImageWatermark(pixels, 640, 480, "x".repeat(60)), false);
-});
-
-/* ---------- 文字隱形標記（複製貼上會帶走的那一層） ---------- */
-check("訊息文字裡插得進隱形標記，取出來一致", () => {
-    const marked = embedTextMark("明天見", "SM-G99-3k9v2");
-    assert.equal(extractTextMark(marked), "SM-G99-3k9v2");
-});
-
-check("標記不改變看得見的文字", () => {
-    const original = "這是一則測試訊息，含表情 😀 與標點。";
-    const marked = embedTextMark(original, "SM-G99-3k9v2");
-    assert.ok(marked.length > original.length, "沒有插入任何字元");
-    /* 把零寬字元拿掉之後，必須與原文一字不差 */
-    assert.equal(marked.replace(/[\u200b\u200c\u200d\u2060]/g, ""), original);
-});
-
-check("長訊息會重複寫好幾份，短訊息也能取回", () => {
-    const long = embedTextMark("a".repeat(600), "SM-G99-3k9v2");
-    assert.equal(extractTextMark(long), "SM-G99-3k9v2");
-    assert.equal(extractTextMark(embedTextMark("嗨", "SM-G99-3k9v2")), "SM-G99-3k9v2");
-});
-
-check("乾淨的文字取不到東西", () => {
-    assert.equal(extractTextMark("這是一段沒有標記的文字"), "");
-    assert.equal(extractTextMark(""), "");
+check("標記最多四行、清掉控制字元、跳脫 XML", () => {
+    assert.deepEqual(markRows("a\n\nb"), ["a", "b"]);
+    assert.deepEqual(markRows("a & <b>\n房號"), ["a &amp; &lt;b&gt;", "房號"]);
+    assert.equal(markRows("\u0007房號")[0].includes("\u0007"), false);
+    assert.deepEqual(markRows("一\n二\n三\n四\n五"), ["一", "二", "三", "四"]);
 });
 
 /* ---------- 時間 ---------- */
@@ -278,7 +228,7 @@ check("頻率限制擋連點與爆量", () => {
 });
 
 /* ---------- 原始碼層級的迴歸檢查 ---------- */
-const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js", "assets/js/watermark.js", "assets/js/device.js"];
+const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js", "assets/js/watermark.js"];
 const APP_JS = readFileSync("assets/js/app.js", "utf8");
 const INDEX_HTML = readFileSync("index.html", "utf8");
 const APP_CSS = readFileSync("assets/css/app.css", "utf8");
@@ -322,7 +272,7 @@ check("引用到的本地資產都存在（圖片、CSS、JS）", () => {
 });
 
 check("assets/js 裡的相對匯入都指得到檔案", () => {
-    for (const file of ["app.js", "avatar.js", "sanitize.js", "watermark.js", "device.js"]) {
+    for (const file of ["app.js", "avatar.js", "sanitize.js", "watermark.js"]) {
         const text = readFileSync(`assets/js/${file}`, "utf8");
         for (const match of text.matchAll(/from "\.\/([A-Za-z0-9_-]+)\.js"/g)) {
             assert.ok(existsSync(`assets/js/${match[1]}.js`), `${file} 匯入的 ${match[1]}.js 不存在`);
@@ -332,6 +282,24 @@ check("assets/js 裡的相對匯入都指得到檔案", () => {
 
 check("HTML 沒有夾帶 http:// 的明文外部資源", () => {
     assert.ok(!/(?:src|href)="http:\/\//.test(INDEX_HTML), "有 http:// 資源");
+});
+
+check("標記層蓋滿畫面、不擋點擊、而且跟著主題換字色", () => {
+    assert.match(APP_CSS, /#mark-layer\s*\{[^}]*position:\s*fixed/, "標記層沒有蓋滿畫面");
+    assert.match(APP_CSS, /#mark-layer\s*\{[^}]*z-index:\s*9999/, "標記層會被彈窗蓋掉");
+    assert.match(APP_CSS, /#mark-layer\s*\{[^}]*pointer-events:\s*none/, "標記層會擋住點擊");
+    assert.match(APP_CSS, /#mark-layer\s*\{[^}]*background-image:\s*var\(--mark-image-light\)/);
+    assert.match(APP_CSS, /\[data-theme="dark"\]\s*#mark-layer\s*\{[^}]*var\(--mark-image-dark\)/, "暗色主題沒有換字色");
+});
+
+check("舊的圖片盲水印與文字隱形標記都清乾淨了", () => {
+    const WATERMARK_JS = readFileSync("assets/js/watermark.js", "utf8");
+    for (const name of ["embedImageWatermark", "extractImageWatermark", "embedTextMark", "extractTextMark", "markPayload"]) {
+        assert.ok(!APP_JS.includes(name), `app.js 還有 ${name}`);
+        assert.ok(!WATERMARK_JS.includes(name), `watermark.js 還有 ${name}`);
+    }
+    assert.ok(!/[\u200b\u200c\u200d\u2060]/.test(APP_JS), "app.js 還有零寬字元");
+    assert.ok(!existsSync("assets/js/device.js"), "device.js 還在");
 });
 
 check("id 不重複，且 for／aria 參照的 id 都存在", () => {

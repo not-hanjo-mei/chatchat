@@ -18,8 +18,6 @@ import { fileURLToPath } from "node:url";
 
 import { JSDOM, VirtualConsole } from "jsdom";
 
-import { extractTextMark, markPayload } from "../assets/js/watermark.js";
-
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workdir = mkdtempSync(join(tmpdir(), "chatchat-e2e-"));
 
@@ -157,12 +155,28 @@ $("nickname").value = "tester";
 $("nickname").dispatchEvent(new window.Event("change", { bubbles: true }));
 check("改暱稱不會拋錯（會記住上次輸入）", errors.length === 0, errors.join(" / "));
 
-check("畫面上沒有可見的浮水印層",
-    $("mark-layer") === null && document.querySelectorAll(".mark-text").length === 0);
+/* 標記層：整頁平鋪的明文小字（暱稱／房號／機型），肉眼看不到、不擋點擊、沒有可見文字 */
+function markRows() {
+    const image = window.document.documentElement.style.getPropertyValue("--mark-image-light");
+    const svg = decodeURIComponent(image.replace(/^url\("data:image\/svg\+xml,/, "").replace(/"\)$/, ""));
+    return [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
+}
+
+{
+    const layer = $("mark-layer");
+    check("掛上一層看不見的標記層，畫面上沒有可見的水印",
+        Boolean(layer) && layer.getAttribute("aria-hidden") === "true" &&
+        document.querySelectorAll(".mark-text").length === 0);
+}
 click($("btn-create"));
 await flush(14);
 
 check("建立房間後進到聊天畫面", visible("chat-screen") && document.body.dataset.screen === "chat-screen");
+/* jsdom 沒有 fetch，所以公網 IP 那行不會出現（3 行）；真的抓到了就是 4 行 */
+check("標記內容跟著暱稱、房號與機型走",
+    JSON.stringify(markRows().slice(0, 2)) === JSON.stringify(["tester", "TESTROOM"]) &&
+    markRows().length >= 3 && markRows().length <= 4,
+    JSON.stringify(markRows()));
 check("進房過程沒有跳出錯誤", alerts.length === 0, JSON.stringify(alerts));
 
 /* ---------- 記住上次的輸入 ---------- */
@@ -185,14 +199,10 @@ check("訊息寫進資料庫", stored.some((message) => message.text === "hello 
     JSON.stringify(stored).slice(0, 160));
 check("訊息出現在畫面上", $("chat-messages").textContent.includes("hello via button"));
 
-/* 訊息文字進畫面時會插入零寬字元的標記：複製出去就帶著「誰看的」 */
+/* 文字進畫面時不再插隱形字元：畫面與資料庫都只有看得見的內容 */
 {
-    const expected = markPayload("unknown");
-    const bubble = document.querySelector(".bubble");
-    const shown = bubble?.textContent ?? "";
-    const strip = (value) => value.replace(/[\u200b\u200c\u200d\u2060]/g, "");
-    check("訊息文字帶著隱形標記", extractTextMark(shown) === expected, `解出 ${JSON.stringify(extractTextMark(shown))}`);
-    check("隱形標記不影響看得見的文字", strip(shown) === "hello via button", strip(shown));
+    const shown = document.querySelector(".bubble")?.textContent ?? "";
+    check("訊息文字沒有夾帶零寬字元", !/[\u200b\u200c\u200d\u2060]/.test(shown), JSON.stringify(shown));
 }
 check("送出後輸入框清空", $("message-input").value === "");
 check("沒有出現送出失敗提示", $("composer-notice").classList.contains("is-hidden"),

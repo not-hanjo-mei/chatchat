@@ -95,7 +95,7 @@ export function safeEmoji(value) {
     return trimmed.length > 0 && trimmed.length <= 8 && EMOJI_PATTERN.test(trimmed) ? trimmed : "";
 }
 
-/* 設備型號只留英數與 - _ .，最長 16 字元，避免塞進標記時爆長或夾帶控制字元 */
+/* 機型只留英數與 - _ .，最長 16 字元，避免塞進標記時爆長或夾帶控制字元 */
 export const MAX_DEVICE = 16;
 
 function cleanDeviceTag(value) {
@@ -106,10 +106,15 @@ function cleanDeviceTag(value) {
 }
 
 /**
- * 從 user agent 抓出可讀的機型，只為了寫進水印，不做指紋或追蹤。
- * 抓不到就回 unknown。
+ * 從 user agent 抓出可讀的機型（明文，可以造假）。
+ * Chrome 110 之後 Android 的 UA 被縮減成「Android 10; K」，機型就沒了，
+ * 所以有 UA Client Hints 的 model 時優先用它（見 app.js 的 loadDeviceModel），
+ * 都沒有才退成平台名或 unknown。
  */
-export function deviceModel(userAgent) {
+export function deviceModel(userAgent, model = "") {
+    const explicit = cleanDeviceTag(model);
+    if (explicit) return explicit;
+
     const ua = String(userAgent ?? "");
 
     /* Android 的 UA 通常是「Android 13; SM-G991B Build/TP1A」，機型在中間那一段 */
@@ -127,6 +132,17 @@ export function deviceModel(userAgent) {
     if (/Macintosh|Mac OS X/i.test(ua)) return "Mac";
     if (/Linux/i.test(ua)) return "Linux";
     return "unknown";
+}
+
+/**
+ * 公網 IP 是外部服務回報的字串，只接受長得像 IPv4／IPv6 的內容，
+ * 其餘一律當作沒拿到（免得別人的回應被寫進標記）。
+ */
+export function safeIp(value) {
+    const text = String(value ?? "").trim();
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(text)) return text;
+    if (/^[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{0,4}){2,7}$/.test(text)) return text;
+    return "";
 }
 
 /** 貼進 SVG <text> 前把 XML 特殊字元換掉（頭像的底色圖用） */

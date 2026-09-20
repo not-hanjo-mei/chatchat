@@ -184,6 +184,23 @@ img {
         linear-gradient(90deg, rgba(242, 240, 230, 0.04) 1px, transparent 1px);
 }
 
+/* ================= 頁面標記層 =================
+   整頁平鋪的裝置標籤，圖與透明度由 watermark.js 產生（--mark-image-* 在 app.js
+   執行時寫入）。肉眼看不到、不接事件、不影響排版，只有截圖被拉高對比才浮出來。
+   z-index 要高於所有畫面與彈窗，截圖才會連標記一起帶走。 */
+#mark-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    background-image: var(--mark-image-light);
+    background-repeat: repeat;
+}
+
+:root[data-theme="dark"] #mark-layer {
+    background-image: var(--mark-image-dark);
+}
+
 /* ================= 反選取與防複製 =================
    全站關閉文字選取與右鍵選單，複製／剪下事件也一律攔掉（見 app.js）。
    輸入框要能選字編輯，所以單獨開放。 */

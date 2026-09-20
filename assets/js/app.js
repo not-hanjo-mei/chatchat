@@ -29,11 +29,11 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 import { applyAvatar } from "./avatar.js";
-import { currentDeviceTag } from "./device.js";
-import { embedImageWatermark, embedTextMark, markPayload } from "./watermark.js";
+import { pageMarkImage } from "./watermark.js";
 import {
     cleanName,
     cleanText,
+    deviceModel,
     formatRateLimitNotice,
     formatTime,
     isValidRoomId,
@@ -41,6 +41,7 @@ import {
     makeRoomCode,
     safeEmoji,
     safeImageSrc,
+    safeIp,
     safeTimestamp,
     createRateLimiter,
     MAX_MESSAGE,
@@ -308,6 +309,7 @@ function switchScreen(screenId) {
     /* 換畫面後輸入框才量得到高度，這時才能把自動長高算對 */
     autoResizeAll();
     if (screenId !== "chat-screen") toggleMenu(false);
+    refreshPageMark();
 }
 
 for (const button of document.querySelectorAll("[data-goto]")) {
@@ -337,11 +339,8 @@ function loadImage(dataUrl) {
  * 縮圖並轉成 WebP，避免 base64 把資料庫撐肥。
  * 若瀏覽器無法解碼（例如部分瀏覽器讀不了 iPhone 的 HEIC），就退回原始檔，
  * 最後再檢查長度上限。
- *
- * mark = true 時，在轉檔前把盲水印寫進像素（見 watermark.js）。只有送進房間的
- * 圖片需要，頭像與自己的聊天背景留在本機，不做處理。
  */
-async function prepareImage(file, maxSide, { mark = false } = {}) {
+async function prepareImage(file, maxSide) {
     if (!file || !file.type.startsWith("image/")) throw new Error("只接受圖片檔案");
     if (file.size > MAX_UPLOAD_BYTES) throw new Error("圖片請小於 2MB");
 
@@ -360,10 +359,8 @@ async function prepareImage(file, maxSide, { mark = false } = {}) {
         const context = canvas.getContext("2d");
         if (context) {
             context.drawImage(image, 0, 0, width, height);
-            if (mark) stampImage(context, width, height);
             const compressed = canvas.toDataURL("image/webp", 0.82);
-            /* 有寫標記時一定要用 canvas 這份（原檔沒有標記），不管哪個比較小 */
-            if (compressed.startsWith("data:image/webp") && (mark || compressed.length < original.length)) {
+            if (compressed.startsWith("data:image/webp") && compressed.length < original.length) {
                 output = compressed;
             }
         }
@@ -375,25 +372,11 @@ async function prepareImage(file, maxSide, { mark = false } = {}) {
     return output;
 }
 
-/*
- * 盲水印：把「誰上傳的、哪一天」寫進圖片低頻區塊，肉眼看不出來，但取出時不需要
- * 原圖。取不回原尺寸（被平台縮圖）時整張圖都不會變樣，只是標記失效。
- */
-function stampImage(context, width, height) {
-    try {
-        const snapshot = context.getImageData(0, 0, width, height);
-        const payload = markPayload(currentDeviceTag());
-        if (embedImageWatermark(snapshot.data, width, height, payload)) context.putImageData(snapshot, 0, 0);
-    } catch (error) {
-        console.warn("圖片標記失敗，改用原圖：", error.message);
-    }
-}
-
-async function handleImagePick(input, maxSide, onReady, options = {}) {
+async function handleImagePick(input, maxSide, onReady) {
     const file = input.files?.[0];
     if (!file) return;
     try {
-        onReady(await prepareImage(file, maxSide, options));
+        onReady(await prepareImage(file, maxSide));
     } catch (error) {
         warn("圖片無法使用", error.message);
     } finally {
@@ -878,13 +861,11 @@ function renderMessage(msgId, rawMessage) {
 
 /**
  * 只把 @標記 轉成元素，其餘一律 textContent，杜絕 HTML 注入。
- * 文字進畫面時才插入零寬字元的隱形標記，讓複製出去的文字帶著「誰看的」。
  */
 function renderRichText(text) {
     const fragment = document.createDocumentFragment();
-    const marked = embedTextMark(text, markPayload(currentDeviceTag()));
 
-    for (const part of marked.split(/(@\S+)/g)) {
+    for (const part of String(text ?? "").split(/(@\S+)/g)) {
         if (part.startsWith("@") && part.length > 1) {
             const mention = document.createElement("span");
             mention.className = "mention";
@@ -951,7 +932,7 @@ el.messageInput.addEventListener("keydown", (event) => {
 el.btnPickImage.addEventListener("click", () => el.chatImgInput.click());
 
 el.chatImgInput.addEventListener("change", () => {
-    handleImagePick(el.chatImgInput, MAX_IMAGE_SIDE, (dataUrl) => sendChatMessage(dataUrl), { mark: true });
+    handleImagePick(el.chatImgInput, MAX_IMAGE_SIDE, (dataUrl) => sendChatMessage(dataUrl));
 });
 
 async function sendChatMessage(imageDataUrl = "") {
@@ -1490,10 +1471,7 @@ function openReadModal(postId, data) {
     applyAvatar(el.readAvatar, postName, data.avatar, 80);
     el.readName.textContent = postName;
     el.readTime.textContent = formatTime(data.timestamp);
-    el.readText.textContent = embedTextMark(
-        cleanText(data.text, MAX_POST),
-        markPayload(currentDeviceTag()),
-    );
+    el.readText.textContent = cleanText(data.text, MAX_POST);
     el.replyInput.value = "";
     autoResize(el.replyInput);
 
@@ -1631,6 +1609,69 @@ for (const textarea of [el.messageInput, el.replyInput]) {
     autoResize(textarea);
 }
 autoResizeAll();
+
+/* ================= 頁面標記 =================
+   整頁平鋪一層看不出來的小字，內容是明文（暱稱／房號／機型／公網 IP），只有在
+   截圖被拉高對比時才看得到。黑白兩份交給 CSS 依主題挑，這裡負責產生圖與掛上圖層。 */
+let publicIp = "";
+let deviceLabel = deviceModel(navigator.userAgent);
+
+/*
+ * 機型：Chrome 110 之後 Android 的 user agent 只剩「Android 10; K」，解析出來就是一個
+ * K，所以先問 UA Client Hints 的 model，拿不到才沿用解析結果。這步是非同步的，
+ * 回來之後才重畫標記。
+ */
+async function loadDeviceModel() {
+    try {
+        const hints = await navigator.userAgentData?.getHighEntropyValues?.(["model"]);
+        const model = deviceModel(navigator.userAgent, hints?.model);
+        if (model && model !== deviceLabel) {
+            deviceLabel = model;
+            refreshPageMark();
+        }
+    } catch (error) {
+        console.warn("取不到機型，沿用 user agent：", error.message);
+    }
+}
+
+/*
+ * 靜態站看不到自己的公網 IP，只能問外面的回顯服務——這是本站唯一的第三方請求
+ * （取捨寫在 SECURITY.md）。拿不到就少寫一行，其餘照舊。
+ */
+async function loadPublicIp() {
+    if (typeof fetch !== "function") return;
+    try {
+        const response = await fetch("https://api.ipify.org?format=json");
+        const ip = safeIp((await response.json())?.ip);
+        if (ip) {
+            publicIp = ip;
+            refreshPageMark();
+        } else {
+            console.warn("回顯服務回的內容不像 IP，標記少一行。");
+        }
+    } catch (error) {
+        console.warn("取不到公網 IP，標記少一行：", error.message);
+    }
+}
+
+function refreshPageMark() {
+    const label = [state.nickname, state.roomId, deviceLabel, publicIp].join("\n");
+    const style = document.documentElement.style;
+    style.setProperty("--mark-image-light", pageMarkImage(label, "#000"));
+    style.setProperty("--mark-image-dark", pageMarkImage(label, "#fff"));
+}
+
+function installPageMark() {
+    const layer = document.createElement("div");
+    layer.id = "mark-layer";
+    layer.setAttribute("aria-hidden", "true");
+    document.body.appendChild(layer);
+    refreshPageMark();
+    void loadDeviceModel();
+    void loadPublicIp();
+}
+
+installPageMark();
 
 prefillInputs();
 state.avatar = readStoredAvatar();
