@@ -460,13 +460,14 @@
         //                 PART B: 心情宇宙邏輯
         // ====================================================
         
+        // 🔥 套用你手繪的星球圖片檔名，並保留 color 以供星點使用
         const PLANETS = {
-            'happy': { name: '開心', color: 'bg-yellow-400', shadow: 'shadow-yellow-400', top: 20, left: 30 },
-            'bored': { name: '無聊', color: 'bg-gray-400', shadow: 'shadow-gray-400', top: 20, left: 70 },
-            'angry': { name: '憤怒', color: 'bg-red-500', shadow: 'shadow-red-500', top: 50, left: 20 },
-            'crush': { name: '心動', color: 'bg-pink-400', shadow: 'shadow-pink-400', top: 50, left: 80 },
-            'sad':   { name: '難過', color: 'bg-blue-400', shadow: 'shadow-blue-400', top: 80, left: 30 },
-            'other': { name: '其他', color: 'bg-white', shadow: 'shadow-white', top: 80, left: 70 }
+            'happy': { name: '開心', img: './happy.png',    color: 'bg-yellow-400', top: 20, left: 30, glow: 'rgba(253,224,71,0.4)' },
+            'bored': { name: '無聊', img: './bored.png',    color: 'bg-gray-400',   top: 20, left: 70, glow: 'rgba(156,163,175,0.4)' },
+            'angry': { name: '憤怒', img: './angry.png',    color: 'bg-red-500',    top: 50, left: 20, glow: 'rgba(239,68,68,0.4)' },
+            'crush': { name: '心動', img: './touching.png', color: 'bg-pink-400',   top: 50, left: 80, glow: 'rgba(244,114,182,0.4)' },
+            'sad':   { name: '難過', img: './sad.png',      color: 'bg-blue-400',   top: 80, left: 30, glow: 'rgba(96,165,250,0.4)' },
+            'other': { name: '其他', img: './other.png',    color: 'bg-white',      top: 80, left: 70, glow: 'rgba(255,255,255,0.4)' }
         };
 
         let isUniverseInit = false;
@@ -486,17 +487,21 @@
             const container = document.getElementById('planets-container');
             container.innerHTML = '';
             for (const [key, p] of Object.entries(PLANETS)) {
-                // 星球本體
                 const planetDiv = document.createElement('div');
-                planetDiv.className = `absolute w-24 h-24 rounded-full ${p.color} shadow-[0_0_40px_rgba(255,255,255,0.2)] cursor-pointer flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform duration-300 z-10`;
+                planetDiv.className = `absolute cursor-pointer flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform duration-300 z-10`;
                 planetDiv.style.top = `${p.top}%`;
                 planetDiv.style.left = `${p.left}%`;
                 planetDiv.onclick = () => openUniversePostModal(key);
                 
-                // + 號與提示文字
                 planetDiv.innerHTML = `
-                    <span class="text-black/50 text-4xl font-bold">+</span>
-                    <span class="absolute -bottom-8 text-white/80 text-sm font-bold tracking-widest whitespace-nowrap drop-shadow-md">${p.name}</span>
+                    <div class="relative group">
+                        <img src="${p.img}" alt="${p.name}" class="w-32 h-32 object-contain" style="image-rendering: pixelated; filter: drop-shadow(0 0 15px ${p.glow});">
+                        <!-- 隱藏的加號，滑鼠移上去時顯示 -->
+                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <span class="text-white text-5xl font-bold drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">+</span>
+                        </div>
+                    </div>
+                    <span class="mt-2 text-white/90 text-sm font-bold tracking-widest drop-shadow-lg">${p.name}</span>
                 `;
                 container.appendChild(planetDiv);
             }
