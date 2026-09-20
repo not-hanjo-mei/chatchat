@@ -1,0 +1,17 @@
+{
+    "name": "chatchat",
+    "version": "1.0.0",
+    "private": true,
+    "description": "ChatChat & 心情宇宙：免註冊的文字聊天室與心情宇宙（純靜態網頁，資料在 Firebase）",
+    "type": "module",
+    "scripts": {
+        "test": "node tools/selfcheck.mjs && node tools/e2e.mjs",
+        "test:selfcheck": "node tools/selfcheck.mjs",
+        "test:e2e": "node tools/e2e.mjs",
+        "build:css": "tailwindcss -i tailwind.input.css -o assets/css/tailwind.css --content \"index.html,assets/js/app.js,assets/js/avatar.js\" --minify"
+    },
+    "devDependencies": {
+        "jsdom": "^30.1.0",
+        "tailwindcss": "^3.4.17"
+    }
+}

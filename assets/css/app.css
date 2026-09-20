@@ -1,0 +1,1504 @@
+/* ==========================================================================
+   ChatChat & 心情宇宙 - 暖紙感設計系統
+   --------------------------------------------------------------------------
+   色票沿用 grokbot 引擎自己的調性（暖白紙、1px 細線、墨黑、藍色強調），
+   因為頭像就是那顆藍，UI 與頭像因此是同一套視覺。
+
+   版面排列交給 Tailwind（assets/css/tailwind.css，已預先編譯），
+   這個檔案只負責設計 token 與元件外觀。不要在元件元素上再用 Tailwind 的
+   顏色／邊框／圓角／陰影工具樣式，否則會兩邊打架。
+
+   主題：:root 是亮色，:root[data-theme="dark"] 是暗色，切換邏輯在 app.js。
+   字體：Fusion Pixel 12px（見 index.html 的 <link>）；像素字只在 12px 與其
+   整數倍（24px）下銳利，這是刻意的限制。
+   ========================================================================== */
+
+:root {
+    color-scheme: light;
+
+    --bg: #f6f5f0;
+    --bg-soft: #efeee7;
+    --surface: #fffdf7;
+    --surface-2: #faf8f1;
+    --line: #e0ddd2;
+    --line-strong: #cfcbbd;
+
+    --ink: #1d1f1a;
+    --ink-soft: #4a4d44;
+    --muted: #6e7067;
+
+    --accent: #5b7fe5;
+    --accent-soft: #e9edfd;
+    --accent-ink: #ffffff;
+    --ok: #3d9970;
+    --warn: #b5791f;
+    --danger: #c2543f;
+    --star: #e0a92c;
+
+    --radius-sm: 10px;
+    --radius: 14px;
+    --radius-lg: 20px;
+
+    --shadow-1: 0 1px 2px rgba(29, 31, 26, 0.07), 0 1px 1px rgba(29, 31, 26, 0.04);
+    --shadow-2: 0 8px 24px rgba(29, 31, 26, 0.1);
+    --ring: 0 0 0 3px rgba(91, 127, 229, 0.35);
+
+    /* 心情宇宙永遠是夜晚，所以那一區用固定的暗色，不隨主題翻面 */
+    --night-surface: rgba(20, 21, 15, 0.88);
+    --night-surface-solid: #1b1d17;
+    --night-line: #3a3d32;
+    --night-ink: #f2f0e6;
+    --night-muted: #a5a89d;
+    --night-veil: rgba(20, 21, 15, 0.45);
+
+    --font-ui: "Fusion Pixel 12px Proportional Traditional Chinese",
+        "Fusion Pixel 12px Proportional Simplified Chinese",
+        ui-monospace, monospace;
+    --fs: 12px;
+    --speed: 160ms;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --bg: #14150f;
+    --bg-soft: #191a14;
+    --surface: #1d1f19;
+    --surface-2: #23251d;
+    --line: #33362c;
+    --line-strong: #454939;
+
+    --ink: #f2f0e6;
+    --ink-soft: #d9d7ca;
+    --muted: #a5a89d;
+
+    --accent: #7d9bf0;
+    --accent-soft: #262f4a;
+    --accent-ink: #101208;
+    --ok: #6cc39c;
+    --warn: #e0ab53;
+    --danger: #e07a63;
+    --star: #f0cb5c;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-2: 0 10px 28px rgba(0, 0, 0, 0.5);
+    --ring: 0 0 0 3px rgba(125, 155, 240, 0.4);
+
+    --night-veil: rgba(10, 11, 8, 0.55);
+}
+
+/* ================= 基礎 ================= */
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--font-ui);
+    font-size: var(--fs);
+    line-height: 1.7;
+    color: var(--ink);
+    background-color: var(--bg);
+    -webkit-font-smoothing: none;
+    -webkit-text-size-adjust: 100%;
+    transition: background-color var(--speed) ease, color var(--speed) ease;
+}
+
+h1,
+h2,
+h3 {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+    margin: 0;
+}
+
+p,
+ul {
+    margin: 0;
+}
+
+ul {
+    padding: 0;
+    list-style: none;
+}
+
+img {
+    max-width: 100%;
+}
+
+:focus-visible {
+    outline: none;
+    box-shadow: var(--ring);
+    border-radius: var(--radius-sm);
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* 1px 細線（暖紙風格的主要分隔手段） */
+.hairline-b {
+    border-bottom: 1px solid var(--line);
+}
+
+.hairline-y {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+/* 暖紙上的極淡格紋，讓大面積留白不至於太平 */
+.paper-texture {
+    background-color: var(--bg);
+    background-image: linear-gradient(rgba(29, 31, 26, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(29, 31, 26, 0.035) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+:root[data-theme="dark"] .paper-texture {
+    background-image: linear-gradient(rgba(242, 240, 230, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(242, 240, 230, 0.04) 1px, transparent 1px);
+}
+
+/* ================= 提醒模式（水印） ================= */
+/* 只是降低誤傳機率的視覺手段，不是防護，無法阻止截圖。 */
+.secure-mode {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.watermark {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    background-repeat: repeat;
+}
+
+.secure-mode .watermark {
+    display: block;
+}
+
+/* ================= 版面骨架 ================= */
+.screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    /* 用 dvh 而不是只有 vh：行動裝置的網址列與工具列會伸縮，100vh 會把畫面
+       底部算到工具列底下，導致下方的星球、輸入框看得到卻按不到。 */
+    height: 100vh;
+    height: 100dvh;
+}
+
+.screen--landing {
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.screen--setup {
+    z-index: 40;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(29, 31, 26, 0.35);
+    backdrop-filter: blur(3px);
+}
+
+.screen--chat {
+    z-index: 30;
+    align-items: stretch;
+}
+
+@media (min-width: 768px) {
+    .screen--chat {
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+}
+
+.screen--universe {
+    z-index: 30;
+    overflow: hidden;
+    background-color: #101119;
+    background-image: url("../img/universe.webp");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* 宇宙遮罩：讓文字與星點在任何背景圖上都讀得清楚 */
+.screen--universe::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--night-veil);
+    pointer-events: none;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 16px;
+    background: rgba(20, 21, 15, 0.55);
+    backdrop-filter: blur(3px);
+}
+
+/* 主題切換：聊天室以外的畫面固定在右上角，聊天室裡則放在側邊欄標題列。
+   有瀏海／挖孔螢幕時，固定元素要讓開安全區域，否則會壓在狀態列底下。 */
+.theme-toggle {
+    position: fixed;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    z-index: 55;
+}
+
+body[data-screen="chat-screen"] .theme-toggle {
+    display: none;
+}
+
+/* ================= 表面 ================= */
+.card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+}
+
+.card--raised {
+    box-shadow: var(--shadow-2);
+}
+
+/* 夜晚表面（心情宇宙與其對話框） */
+.card--night {
+    background-color: var(--night-surface-solid);
+    border: 1px solid var(--night-line);
+    border-radius: var(--radius);
+    color: var(--night-ink);
+    box-shadow: var(--shadow-2);
+}
+
+/* ================= 按鈕 ================= */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+    font-size: var(--fs);
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    padding: 10px 16px;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-1);
+    cursor: pointer;
+    transition: background-color var(--speed) ease, border-color var(--speed) ease,
+        transform var(--speed) ease, box-shadow var(--speed) ease;
+}
+
+.btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: none;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn--primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+}
+
+.btn--primary:hover:not(:disabled) {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    filter: brightness(1.06);
+}
+
+.btn--ok {
+    background-color: var(--ok);
+    border-color: var(--ok);
+    color: #ffffff;
+}
+
+:root[data-theme="dark"] .btn--ok {
+    color: #0f1208;
+}
+
+.btn--ok:hover:not(:disabled) {
+    color: inherit;
+    filter: brightness(1.06);
+}
+
+.btn--danger {
+    color: var(--danger);
+    border-color: var(--danger);
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.btn--danger:hover:not(:disabled) {
+    background-color: var(--danger);
+    color: #ffffff;
+}
+
+.btn--warn {
+    background-color: var(--warn);
+    border-color: var(--warn);
+    color: #ffffff;
+}
+
+.btn--warn:hover:not(:disabled) {
+    color: #ffffff;
+    filter: brightness(1.06);
+}
+
+.btn--muted {
+    background-color: var(--surface-2);
+    border-color: var(--line);
+    color: var(--ink-soft);
+    box-shadow: none;
+}
+
+.btn--sm {
+    padding: 6px 10px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+}
+
+.btn--icon {
+    padding: 10px;
+    letter-spacing: 0;
+}
+
+/* 夜晚情境的按鈕 */
+.btn--night {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: var(--night-line);
+    color: var(--night-ink);
+    box-shadow: none;
+}
+
+.btn--night:hover:not(:disabled) {
+    border-color: var(--night-ink);
+    color: var(--night-ink);
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ================= 表單 ================= */
+.field {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.input {
+    width: 100%;
+    font-family: inherit;
+    font-size: var(--fs);
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    resize: none;
+    transition: border-color var(--speed) ease, background-color var(--speed) ease;
+}
+
+.input::placeholder {
+    color: var(--muted);
+    opacity: 0.8;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background-color: var(--surface);
+    box-shadow: var(--ring);
+}
+
+.input--night {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--night-line);
+    color: var(--night-ink);
+}
+
+.input--night::placeholder {
+    color: var(--night-muted);
+}
+
+.input--night:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent);
+}
+
+/* 會自動長高的輸入框：min-height 讓它在 JavaScript 還沒量到高度前（例如畫面
+   還隱藏著、scrollHeight 是 0）也不會塌成一條線。 */
+.input--grow {
+    min-height: 44px;
+    max-height: 132px;
+    overflow-y: auto;
+}
+
+.hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--muted);
+}
+
+.file-input {
+    display: block;
+    width: 100%;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    background-color: var(--surface-2);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 6px;
+    cursor: pointer;
+}
+
+.file-input::file-selector-button {
+    font-family: inherit;
+    font-size: 12px;
+    margin-right: 10px;
+    padding: 6px 10px;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+/* ================= 標籤與文字 ================= */
+.label {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.label--night {
+    color: var(--night-muted);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.title {
+    font-size: 24px;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+}
+
+.title--sm {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--night-ink);
+}
+
+.accent {
+    color: var(--accent);
+}
+
+.note {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    background-color: var(--surface-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+}
+
+.note--night {
+    color: var(--night-muted);
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: var(--night-line);
+    border-left-color: var(--warn);
+}
+
+.badge {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 1px 6px;
+    color: var(--accent);
+    background-color: var(--accent-soft);
+    border-radius: 999px;
+}
+
+/* ================= 頭像 ================= */
+.avatar-tile {
+    display: block;
+    border-radius: 34%;
+    object-fit: cover;
+    background-color: var(--surface-2);
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+}
+
+.avatar-tile--sm {
+    width: 32px;
+    height: 32px;
+}
+
+.avatar-tile--md {
+    width: 36px;
+    height: 36px;
+}
+
+.avatar-tile--lg {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-tile--xl {
+    width: 88px;
+    height: 88px;
+    box-shadow: var(--shadow-1);
+}
+
+.avatar-tile--night {
+    border-color: var(--night-line);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* ================= 大廳 ================= */
+.hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+}
+
+.hero-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 34%;
+    border: 1px solid var(--line);
+    background-color: var(--surface-2);
+    box-shadow: var(--shadow-2);
+}
+
+.choice-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 20px;
+    text-align: left;
+    font-family: inherit;
+    font-size: var(--fs);
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+    cursor: pointer;
+    transition: border-color var(--speed) ease, transform var(--speed) ease,
+        box-shadow var(--speed) ease;
+}
+
+.choice-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2);
+}
+
+.choice-card:active {
+    transform: translateY(0);
+}
+
+.choice-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.choice-name {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.choice-desc {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* ================= 聊天室 ================= */
+.chat-shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg);
+    overflow: hidden;
+}
+
+@media (min-width: 768px) {
+    .chat-shell {
+        flex-direction: row;
+        max-width: 76rem;
+        margin: auto;
+        height: 92vh;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-2);
+    }
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .sidebar {
+        width: 17rem;
+        border-bottom: 0;
+        border-right: 1px solid var(--line);
+    }
+}
+
+.sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+/* flex 項目的 min-width 預設是 auto，房號一長就會把右邊的按鈕推出容器
+   （.chat-shell 有 overflow: hidden，按鈕等於消失）。這裡明確允許壓縮。 */
+.sidebar-head h2 {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.sidebar-head > :last-child {
+    flex-shrink: 0;
+}
+
+.sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 767px) {
+    .sidebar-panel {
+        position: absolute;
+        top: 53px;
+        left: 0;
+        right: 0;
+        z-index: 45;
+        max-height: 60vh;
+        background-color: var(--surface);
+        border-bottom: 1px solid var(--line);
+        box-shadow: var(--shadow-2);
+    }
+}
+
+@media (min-width: 768px) {
+    .menu-toggle {
+        display: none;
+    }
+
+    .sidebar-panel.is-hidden {
+        display: flex !important;
+    }
+}
+
+.host-controls {
+    padding: 12px 14px;
+    background-color: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+}
+
+.members {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-foot {
+    flex-shrink: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 1px solid var(--line);
+}
+
+.member-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    transition: background-color var(--speed) ease;
+}
+
+.member-card:hover {
+    background-color: var(--surface-2);
+}
+
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background-color: var(--bg-soft);
+}
+
+.chat-log {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@media (min-width: 768px) {
+    .chat-log {
+        padding: 24px 28px;
+    }
+}
+
+.composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 12px;
+    background-color: var(--surface);
+    border-top: 1px solid var(--line);
+}
+
+.msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.msg--me {
+    justify-content: flex-end;
+}
+
+.msg-body {
+    display: flex;
+    flex-direction: column;
+    max-width: 82%;
+    position: relative;
+}
+
+.msg--me .msg-body {
+    align-items: flex-end;
+}
+
+@media (min-width: 768px) {
+    .msg-body {
+        max-width: 68%;
+    }
+}
+
+.msg-author {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 3px;
+    padding-left: 4px;
+}
+
+.bubble {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    line-height: 1.75;
+}
+
+.bubble--me {
+    background-color: var(--accent);
+    color: var(--accent-ink);
+    border-bottom-right-radius: 4px;
+}
+
+.bubble--other {
+    background-color: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-bottom-left-radius: 4px;
+}
+
+.bubble--night {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--night-ink);
+    border: 1px solid var(--night-line);
+    border-radius: var(--radius);
+}
+
+.bubble-image {
+    display: block;
+    max-width: 100%;
+    margin-bottom: 8px;
+    border-radius: var(--radius-sm);
+    cursor: zoom-in;
+}
+
+.mention {
+    color: var(--accent);
+    background-color: var(--accent-soft);
+    border-radius: 6px;
+    padding: 0 4px;
+}
+
+.bubble--me .mention {
+    color: var(--accent-ink);
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+.reply-quote {
+    max-width: 100%;
+    font-size: 12px;
+    padding: 5px 10px;
+    margin-bottom: -6px;
+    color: var(--muted);
+    background-color: var(--surface-2);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.reply-quote-name {
+    color: var(--accent);
+    margin-right: 4px;
+}
+
+.reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 9px;
+    color: var(--ink-soft);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color var(--speed) ease, color var(--speed) ease;
+}
+
+.chip:hover {
+    border-color: var(--accent);
+}
+
+.chip.is-mine {
+    color: var(--accent);
+    border-color: var(--accent);
+    background-color: var(--accent-soft);
+}
+
+.msg-star {
+    align-self: flex-start;
+    padding: 0 6px 12px;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--muted);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity var(--speed) ease, color var(--speed) ease;
+}
+
+.msg-star:hover {
+    color: var(--star);
+    opacity: 1;
+}
+
+@media (min-width: 768px) {
+    .msg-star {
+        opacity: 0.25;
+    }
+
+    .msg:hover .msg-star,
+    .msg:focus-within .msg-star {
+        opacity: 0.9;
+    }
+}
+
+/* 輸入列裡的按鈕跟輸入框同高，視覺才不會參差 */
+.composer .btn,
+.universe-composer .btn {
+    min-height: 44px;
+}
+
+.reply-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    background-color: var(--surface-2);
+    border-top: 1px solid var(--line);
+}
+
+.reply-preview > span {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.reply-preview strong {
+    color: var(--accent);
+}
+
+.star-menu {
+    position: absolute;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: var(--shadow-2);
+    transition: transform var(--speed) ease, opacity var(--speed) ease;
+}
+
+.star-menu.is-closed {
+    transform: scale(0.96) translateY(4px);
+    opacity: 0;
+}
+
+/* ================= 心情宇宙 ================= */
+.universe-exit {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    left: calc(16px + env(safe-area-inset-left, 0px));
+    z-index: 50;
+}
+
+.legend {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    /* 面板本身不吃點擊，星球與星點才不會被蓋住；只有標題列例外 */
+    pointer-events: none;
+    padding: 12px 14px;
+    color: var(--night-ink);
+    background-color: var(--night-surface);
+    border: 1px solid var(--night-line);
+    border-radius: var(--radius);
+    backdrop-filter: blur(6px);
+}
+
+.legend-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--night-ink);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.legend-caret {
+    transition: transform var(--speed) ease;
+}
+
+.legend.is-open .legend-toggle {
+    padding-bottom: 10px;
+}
+
+.legend:not(.is-open) .legend-caret {
+    transform: rotate(-90deg);
+}
+
+.legend:not(.is-open) .legend-body {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .legend {
+        right: auto;
+        max-width: 21rem;
+    }
+}
+
+.legend-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    font-size: 12px;
+    color: var(--night-ink);
+}
+
+@media (min-width: 768px) {
+    .legend-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 8px;
+    border-radius: 50%;
+    vertical-align: 1px;
+}
+
+.legend-dot[data-mood="happy"] {
+    background-color: #fde047;
+}
+
+.legend-dot[data-mood="bored"] {
+    background-color: #9ca3af;
+}
+
+.legend-dot[data-mood="angry"] {
+    background-color: #ef4444;
+}
+
+.legend-dot[data-mood="crush"] {
+    background-color: #f472b6;
+}
+
+.legend-dot[data-mood="sad"] {
+    background-color: #60a5fa;
+}
+
+.legend-dot[data-mood="other"] {
+    background-color: #ffffff;
+}
+
+/* 心情列：整列可點，點了開出該心情的心事清單 */
+.legend-mood {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 12px;
+    color: inherit;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    /* 面板本身是 pointer-events: none，這裡單獨打開 */
+    pointer-events: auto;
+    transition: background-color var(--speed) ease;
+}
+
+.legend-mood:hover,
+.legend-mood:focus-visible {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.legend-count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--night-muted);
+}
+
+/* 心事清單的每一列 */
+.list-item {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 12px;
+    color: inherit;
+    text-align: left;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--night-line);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color var(--speed) ease, background-color var(--speed) ease;
+}
+
+.list-item:hover,
+.list-item:focus-visible {
+    border-color: var(--night-ink);
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+.list-item-text {
+    margin-top: 4px;
+    color: var(--night-ink);
+    overflow-wrap: anywhere;
+}
+
+.list-item-meta {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #f0a35e;
+}
+
+.legend-foot {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--night-line);
+    font-size: 12px;
+    color: #f0a35e;
+}
+
+.planet {
+    position: absolute;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -50%);
+    padding: 0;
+    background: none;
+    border: 0;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.planet-art {
+    position: relative;
+    transition: transform var(--speed) ease;
+}
+
+.planet:hover .planet-art {
+    transform: scale(1.08);
+}
+
+.planet-img {
+    width: 76px;
+    height: 76px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+@media (min-width: 768px) {
+    .planet-img {
+        width: 104px;
+        height: 104px;
+    }
+}
+
+.planet-plus {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    opacity: 0;
+    transition: opacity var(--speed) ease;
+}
+
+.planet:hover .planet-plus,
+.planet:focus-visible .planet-plus {
+    opacity: 1;
+}
+
+.planet-name {
+    margin-top: 6px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--night-ink);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.star {
+    position: absolute;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+/* 星點本體只有 12px，用偽元素把可點範圍擴大到 40px；
+   另外宇宙畫面整片都接受點擊（見 app.js 的 openNearestStar），
+   落在星點附近就會開啟最近的星。 */
+.star::after {
+    content: "";
+    position: absolute;
+    inset: -14px;
+}
+
+.star-core {
+    position: relative;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.star-halo {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    opacity: 0.45;
+    filter: blur(3px);
+}
+
+.reply-orbit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.reply-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #f0a35e;
+    box-shadow: 0 0 6px rgba(240, 163, 94, 0.9);
+}
+
+.universe-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 12px 14px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid var(--night-line);
+}
+
+.reply-card {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--night-line);
+    border-radius: var(--radius-sm);
+}
+
+.reply-card-name {
+    color: #f0a35e;
+    letter-spacing: 0.04em;
+}
+
+.reply-card-time {
+    font-size: 12px;
+    color: var(--night-muted);
+}
+
+.reply-card-text {
+    margin-top: 4px;
+    color: var(--night-ink);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+/* ================= Modal ================= */
+.modal-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 32rem;
+    max-height: 86vh;
+    overflow: hidden;
+}
+
+.modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--night-line);
+}
+
+.modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ================= 動畫 ================= */
+@keyframes cardIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px) scale(0.99);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.modal-enter {
+    animation: cardIn 0.22s ease-out forwards;
+}
+
+@keyframes msgIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.msg-enter {
+    animation: msgIn 0.18s ease-out forwards;
+}
+
+@keyframes starPulse {
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.85;
+    }
+
+    50% {
+        transform: scale(1.25);
+        opacity: 1;
+    }
+}
+
+.custom-star {
+    animation: starPulse 2.6s ease-in-out infinite;
+}
+
+@keyframes planetFloat {
+    0%,
+    100% {
+        transform: translate(-50%, -50%);
+    }
+
+    50% {
+        transform: translate(-50%, calc(-50% - 7px));
+    }
+}
+
+.planet-float {
+    animation: planetFloat 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}

@@ -1,0 +1,8 @@
+/* Tailwind 的進入點：只產生 preflight 與實際用到的工具樣式。
+   重建指令（改過 index.html 的 class 之後要跑）：
+     npx tailwindcss@3.4.17 -i tailwind.input.css -o assets/css/tailwind.css \
+       --content "index.html,assets/js/app.js,assets/js/avatar.js" --minify
+   產物 assets/css/tailwind.css 要一起 commit，因為 Pages 沒有建置流程。 */
+
+@tailwind base;
+@tailwind utilities;
