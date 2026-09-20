@@ -2,23 +2,20 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 強制允許手機縮放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>ChatChat & 心情宇宙</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* ================= 基礎設定與隱藏捲軸 ================= */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* ================= 機密模式與浮水印 ================= */
         .secure-mode { user-select: none; -webkit-user-select: none; }
         .watermark { pointer-events: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: none; background-repeat: repeat; }
         .secure-mode .watermark { display: block; }
 
-        /* ================= 經典像素風 (Hi-Bit Retro UI) ================= */
         body { font-family: 'Courier New', Courier, monospace, sans-serif; background-color: #0b0f19; }
 
-        /* 復古點陣背景 */
         .lobby-bg {
             background-color: #0c0c14;
             background-image: 
@@ -28,21 +25,13 @@
             background-size: 100% 100%, 20px 20px, 20px 20px;
         }
 
-        /* 像素硬派方塊容器 (無模糊陰影，純粹厚邊框) */
         .pixel-box {
             background-color: #111827;
             border: 4px solid #1f2937;
             border-radius: 4px;
             box-shadow: 8px 8px 0px 0px #000000;
         }
-        .pixel-box-light {
-            background-color: #f8fafc;
-            border: 4px solid #1f2937;
-            border-radius: 4px;
-            box-shadow: 8px 8px 0px 0px #000000;
-        }
 
-        /* 經典像素按鈕與真實按壓動效 */
         .pixel-btn {
             background-color: #374151;
             color: #ffffff;
@@ -57,7 +46,6 @@
             transform: translate(5px, 5px);
         }
 
-        /* 主色按鈕 (靛藍) */
         .pixel-btn-indigo {
             background-color: #4f46e5;
             border: 3px solid #111827;
@@ -71,7 +59,6 @@
             transform: translate(5px, 5px);
         }
 
-        /* 警示按鈕 (紅) */
         .pixel-btn-red {
             background-color: #dc2626;
             border: 3px solid #111827;
@@ -85,7 +72,6 @@
             transform: translate(5px, 5px);
         }
 
-        /* 聊天氣泡 */
         .pixel-bubble-me {
             background-color: #4f46e5;
             color: white;
@@ -99,7 +85,6 @@
             box-shadow: 4px 4px 0px 0px #000000;
         }
 
-        /* 像素頭像 */
         .pixel-avatar {
             border: 3px solid #111827;
             border-radius: 2px;
@@ -107,7 +92,6 @@
             image-rendering: pixelated;
         }
 
-        /* 宇宙背景 */
         .universe-bg {
             background-image: url('./universe.png');
             background-size: cover;
@@ -115,9 +99,11 @@
             background-repeat: no-repeat;
             background-attachment: fixed;
             background-color: #0f0f1a;
+            min-height: 100vh;
+            min-width: 100vw;
+            overflow: auto;
         }
         
-        /* 動畫 */
         .modal-enter { animation: pixelPop 0.2s steps(4, end) forwards; }
         @keyframes pixelPop {
             from { opacity: 0; transform: scale(0.9); }
@@ -145,9 +131,8 @@
         .reply-orbit { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; pointer-events: none; }
     </style>
 </head>
-<body class="lobby-bg text-gray-100 h-[100dvh] overflow-hidden font-sans" id="main-body">
+<body class="lobby-bg text-gray-100 min-h-[100dvh] overflow-x-hidden font-sans" id="main-body">
 
-    <!-- 浮水印層 -->
     <div class="watermark" id="watermark-layer"></div>
 
     <!-- ==================== 1. 入口大廳 ==================== -->
@@ -205,7 +190,6 @@
         
         <div class="w-full h-full md:max-w-6xl md:h-[92vh] pixel-box flex flex-col md:flex-row overflow-hidden relative modal-enter">
             
-            <!-- 側邊欄 -->
             <div class="w-full md:w-72 bg-gray-900 border-b-4 md:border-b-0 md:border-r-4 border-gray-700 flex flex-col z-20 flex-shrink-0">
                 <div class="p-3.5 md:p-4 flex justify-between items-center border-b-4 border-gray-700 bg-gray-800">
                     <h2 class="font-black text-gray-200 text-xs md:text-sm tracking-wide">房號: <span id="display-room-id" class="text-indigo-400"></span></h2>
@@ -223,7 +207,6 @@
                         <input type="file" id="bg-input" accept="image/*" class="hidden">
                     </div>
                     
-                    <!-- 房主專屬 -->
                     <div id="host-controls" class="hidden p-2.5 border-b-4 border-gray-700 bg-red-950/60">
                         <label class="flex items-center justify-between text-xs font-black text-red-400 cursor-pointer">
                             <span>🛡️ 防截圖機密模式</span>
@@ -241,17 +224,14 @@
                 </div>
             </div>
 
-            <!-- 聊天主區域 -->
             <div class="flex-1 flex flex-col h-[calc(100%-57px)] md:h-full relative bg-gray-950">
                 <div class="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 no-scrollbar" id="chat-messages"></div>
                 
-                <!-- 回覆預覽 -->
                 <div id="reply-preview" class="hidden bg-indigo-950 border-t-4 border-gray-700 p-2 text-xs flex justify-between items-center">
                     <span class="text-indigo-200 font-bold truncate">REPLY <strong id="reply-to-name" class="font-black text-white"></strong></span>
                     <button onclick="window.cancelReply()" class="pixel-btn w-5 h-5 flex items-center justify-center rounded text-red-400 font-black text-xs">✕</button>
                 </div>
 
-                <!-- 輸入區 -->
                 <div class="p-2.5 md:p-4 bg-gray-900 border-t-4 border-gray-700 flex items-end space-x-2">
                     <button onclick="document.getElementById('chat-img-input').click()" class="pixel-btn p-2.5 rounded flex-shrink-0 text-sm">📷</button>
                     <input type="file" id="chat-img-input" accept="image/*" class="hidden">
@@ -262,7 +242,6 @@
                 </div>
             </div>
             
-            <!-- 星星表情選單 -->
             <div id="star-menu" class="hidden absolute pixel-box p-1.5 flex items-center space-x-1 z-50 transform transition-all duration-150 origin-bottom scale-95 opacity-0">
                 <button class="pixel-btn p-1.5 rounded text-sm" onclick="window.addReaction('👍')">👍</button>
                 <button class="pixel-btn p-1.5 rounded text-sm" onclick="window.addReaction('❤️')">❤️</button>
@@ -276,26 +255,33 @@
     <div id="universe-screen" class="hidden absolute inset-0 universe-bg z-30">
         
         <!-- 返回按鈕 -->
-        <button onclick="switchScreen('landing-screen')" class="absolute top-5 left-4 md:left-6 text-white font-bold px-3.5 py-2 text-xs z-50 pixel-btn bg-gray-900 flex items-center space-x-1.5 tracking-widest uppercase">
+        <button onclick="switchScreen('landing-screen')" class="fixed top-4 left-4 text-white font-bold px-3.5 py-2 text-xs z-50 pixel-btn bg-gray-900 flex items-center space-x-1.5 tracking-widest uppercase shadow-xl">
             <span>←</span><span>LEAVE</span>
         </button>
         
-        <!-- 導覽面板 -->
-        <div class="absolute bottom-5 left-4 right-4 md:right-auto md:left-6 text-white text-[11px] md:text-xs pixel-box bg-gray-900 md:max-w-xs p-3.5 z-40 pointer-events-none">
-            <h3 class="font-black text-gray-200 mb-2 tracking-widest border-b-4 border-gray-700 pb-1.5 uppercase">Guide</h3>
-            <div class="grid grid-cols-3 md:grid-cols-1 gap-2 font-bold text-gray-300">
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#fde047] mr-2"></span>開心 (點星球發文)</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#9ca3af] mr-2"></span>無聊</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#ef4444] mr-2"></span>憤怒</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#f472b6] mr-2"></span>心動</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#60a5fa] mr-2"></span>難過</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#ffffff] mr-2"></span>其他</div>
+        <!-- 導覽面板 (改為可收折按鈕，預設手機版縮小不佔位) -->
+        <div id="guide-box" class="fixed bottom-3 left-3 md:left-6 md:bottom-5 text-white text-[10px] md:text-xs pixel-box bg-gray-900/95 md:max-w-xs p-2.5 md:p-3.5 z-40 transition-all">
+            <div class="flex justify-between items-center cursor-pointer" onclick="toggleGuide()">
+                <h3 class="font-black text-gray-200 tracking-widest uppercase flex items-center space-x-2">
+                    <span>🌌 GUIDE</span>
+                    <span id="guide-toggle-text" class="text-orange-400 text-[9px] font-bold">▼ 展開指南</span>
+                </h3>
             </div>
-            <div class="pt-2 mt-2 border-t-4 border-gray-700 text-orange-400 font-black text-[10px]">※ 橘光 = 宇宙迴響</div>
+            <div id="guide-content" class="hidden pt-2 mt-2 border-t-2 border-gray-700">
+                <div class="grid grid-cols-2 gap-1.5 font-bold text-gray-300 mb-2">
+                    <div class="flex items-center"><span class="w-2 h-2 border border-black bg-[#fde047] mr-1"></span>開心</div>
+                    <div class="flex items-center"><span class="w-2 h-2 border border-black bg-[#9ca3af] mr-1"></span>無聊</div>
+                    <div class="flex items-center"><span class="w-2 h-2 border border-black bg-[#ef4444] mr-1"></span>憤怒</div>
+                    <div class="flex items-center"><span class="w-2 h-2 border border-black bg-[#f472b6] mr-1"></span>心動</div>
+                    <div class="flex items-center"><span class="w-2 h-2 border border-black bg-[#60a5fa] mr-1"></span>難過</div>
+                    <div class="flex items-center"><span class="w-2 h-2 border border-black bg-[#ffffff] mr-1"></span>其他</div>
+                </div>
+                <div class="text-orange-400 text-[9px] font-black border-t border-gray-800 pt-1">※ 點擊星球可發文，橘光 = 宇宙迴響</div>
+            </div>
         </div>
 
-        <div id="planets-container" class="relative w-full h-full"></div>
-        <div id="stars-container" class="absolute inset-0"></div>
+        <div id="planets-container" class="relative w-[150vw] h-[150vh] md:w-full md:h-full"></div>
+        <div id="stars-container" class="absolute inset-0 w-[150vw] h-[150vh] md:w-full md:h-full pointer-events-none"></div>
     </div>
 
     <!-- 宇宙：發文 Modal -->
@@ -375,9 +361,18 @@
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
-            
-            if(screenId !== 'chat-screen') {
-                document.body.classList.remove('secure-mode');
+            if(screenId !== 'chat-screen') document.body.classList.remove('secure-mode');
+        };
+
+        window.toggleGuide = () => {
+            const content = document.getElementById('guide-content');
+            const toggleText = document.getElementById('guide-toggle-text');
+            if(content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                toggleText.innerText = '▲ 收合';
+            } else {
+                content.classList.add('hidden');
+                toggleText.innerText = '▼ 展開指南';
             }
         };
 
@@ -465,10 +460,7 @@
             onValue(ref(db, `rooms/${currentRoomId}/members`), async (snap) => {
                 const members = snap.val();
                 if (!members) { 
-                    if (currentRoomId !== null) {
-                        alert("房間已被解散！"); 
-                        window.location.reload(); 
-                    }
+                    if (currentRoomId !== null) { alert("房間已被解散！"); window.location.reload(); }
                     return; 
                 }
                 if (!members[myUserId]) { alert("你已被踢出房間！"); return window.location.reload(); }
@@ -538,15 +530,13 @@
             
             html += `</div><div id="reactions-${msgId}" class="flex flex-wrap gap-1 mt-1 z-20 relative"></div></div>`;
 
-            const starBtn = `<button class="opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 text-gray-400 hover:text-yellow-400 px-1.5 pb-2 text-base font-black" onclick="window.showStarMenu(event, '${msgId}', '${msg.name}', \`${msg.text ? msg.text.replace(/`/g, "'").replace(/\n/g, " ") : '[圖片]'}\`)">★</button>`;
+            const starBtn = `<button class="opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 text-gray-400 hover:text-yellow-400 px-1.5 pb-2 text-base font-black pointer-events-auto" onclick="window.showStarMenu(event, '${msgId}', '${msg.name}', \`${msg.text ? msg.text.replace(/`/g, "'").replace(/\n/g, " ") : '[圖片]'}\`)">★</button>`;
             const mobileStarBtn = starBtn.replace('opacity-0', 'opacity-50 md:opacity-0');
 
             msgDiv.innerHTML = isMe ? mobileStarBtn + html : html + mobileStarBtn;
 
             chatMessages.appendChild(msgDiv);
-            setTimeout(() => {
-                chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
-            }, 50);
+            setTimeout(() => { chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); }, 50);
             updateMessageReactions(msgId, msg); 
         }
 
@@ -573,9 +563,7 @@
         }
 
         document.getElementById('btn-send').addEventListener('click', () => sendChatMessage());
-        messageInput.addEventListener('keydown', (e) => { 
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
-        });
+        messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } });
         document.getElementById('chat-img-input').addEventListener('change', (e) => { processImage(e.target.files[0], (b) => { sendChatMessage(b); e.target.value = ''; }); });
 
         window.showStarMenu = (e, msgId, name, text) => {
@@ -588,15 +576,11 @@
             starMenu.style.top = `${rect.top - 45}px`;
             
             starMenu.classList.remove('hidden');
-            setTimeout(() => { 
-                starMenu.classList.remove('scale-95', 'opacity-0'); 
-                starMenu.classList.add('scale-100', 'opacity-100');
-            }, 10);
+            setTimeout(() => { starMenu.classList.remove('scale-95', 'opacity-0'); starMenu.classList.add('scale-100', 'opacity-100'); }, 10);
             
             setTimeout(() => { 
                 document.addEventListener('click', function close() { 
-                    starMenu.classList.remove('scale-100', 'opacity-100'); 
-                    starMenu.classList.add('scale-95', 'opacity-0');
+                    starMenu.classList.remove('scale-100', 'opacity-100'); starMenu.classList.add('scale-95', 'opacity-0');
                     setTimeout(() => starMenu.classList.add('hidden'), 150);
                     document.removeEventListener('click', close); 
                 }); 
@@ -616,21 +600,14 @@
         
         document.getElementById('btn-disband').onclick = async () => { 
             if(confirm("解散房間將徹底刪除所有對話與房號，確定執行？")) {
-                const targetRoom = currentRoomId;
-                currentRoomId = null;
-                try {
-                    await remove(ref(db, `rooms/${targetRoom}`));
-                    alert("房間已成功解散並釋出！");
-                } catch (err) {
-                    console.error(err);
-                }
+                const targetRoom = currentRoomId; currentRoomId = null;
+                try { await remove(ref(db, `rooms/${targetRoom}`)); alert("房間已成功解散並釋出！"); } catch (err) { console.error(err); }
                 window.location.reload();
             }
         };
 
         document.getElementById('btn-leave').onclick = async () => { 
-            const targetRoom = currentRoomId;
-            currentRoomId = null;
+            const targetRoom = currentRoomId; currentRoomId = null;
             await remove(ref(db, `rooms/${targetRoom}/members/${myUserId}`)); 
             window.location.reload(); 
         };
@@ -649,12 +626,12 @@
         // ====================================================
         
         const PLANETS = {
-            'happy': { name: '開心', img: './happy.png',    color: '#fde047', top: 22, left: 30 },
-            'bored': { name: '無聊', img: './bored.png',    color: '#9ca3af', top: 22, left: 70 },
-            'angry': { name: '憤怒', img: './angry.png',    color: '#ef4444', top: 50, left: 20 },
-            'crush': { name: '心動', img: './touching.png', color: '#f472b6', top: 50, left: 80 },
-            'sad':   { name: '難過', img: './sad.png',      color: '#60a5fa', top: 78, left: 30 },
-            'other': { name: '其他', img: './other.png',    color: '#ffffff', top: 78, left: 70 }
+            'happy': { name: '開心', img: './happy.png',    color: '#fde047', top: 15, left: 30 },
+            'bored': { name: '無聊', img: './bored.png',    color: '#9ca3af', top: 15, left: 70 },
+            'angry': { name: '憤怒', img: './angry.png',    color: '#ef4444', top: 45, left: 20 },
+            'crush': { name: '心動', img: './touching.png', color: '#f472b6', top: 45, left: 80 },
+            'sad':   { name: '難過', img: './sad.png',      color: '#60a5fa', top: 75, left: 30 },
+            'other': { name: '其他', img: './other.png',    color: '#ffffff', top: 75, left: 70 }
         };
 
         let isUniverseInit = false;
@@ -683,14 +660,13 @@
                 
                 planetDiv.innerHTML = `
                     <div class="relative group transform transition-transform duration-200 hover:scale-110 flex items-center justify-center">
-                        <!-- 獨立光暈層（完美圓形發光，徹底解決方形結界問題） -->
                         <div class="absolute w-16 h-16 rounded-full blur-md opacity-60 pointer-events-none" style="background-color: ${p.color};"></div>
-                        <img src="${p.img}" alt="${p.name}" class="relative w-20 h-20 md:w-32 md:h-32 object-contain z-10" style="image-rendering: pixelated;">
+                        <img src="${p.img}" alt="${p.name}" class="relative w-16 h-16 md:w-28 md:h-28 object-contain z-10" style="image-rendering: pixelated;">
                         <div class="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded">
-                            <span class="text-white text-4xl font-black drop-shadow-[2px_2px_0_#000]">+</span>
+                            <span class="text-white text-3xl font-black drop-shadow-[2px_2px_0_#000]">+</span>
                         </div>
                     </div>
-                    <span class="mt-1.5 text-white text-[11px] font-black tracking-widest px-2 py-0.5 border-2 border-gray-800 bg-gray-900/95 shadow-[2px_2px_0_#000] z-10">${p.name}</span>
+                    <span class="mt-1 text-white text-[10px] md:text-[11px] font-black tracking-widest px-2 py-0.5 border-2 border-gray-800 bg-gray-900/95 shadow-[2px_2px_0_#000] z-10">${p.name}</span>
                 `;
                 container.appendChild(planetDiv);
             }
@@ -717,12 +693,12 @@
 
             const starDiv = document.createElement('div');
             starDiv.id = `ustar-${postId}`;
-            starDiv.className = `absolute cursor-pointer custom-star z-20 flex items-center justify-center hover:scale-150 transition-transform`;
+            starDiv.className = `absolute cursor-pointer custom-star z-20 flex items-center justify-center hover:scale-150 transition-transform pointer-events-auto`;
             
             let finalLeft = p.left + (data.offsetX || 0);
             let finalTop = p.top + (data.offsetY || 0);
             finalLeft = Math.max(10, Math.min(90, finalLeft));
-            finalTop = Math.max(15, Math.min(85, finalTop));
+            finalTop = Math.max(10, Math.min(90, finalTop));
 
             starDiv.style.top = `${finalTop}%`;
             starDiv.style.left = `${finalLeft}%`;
@@ -843,15 +819,11 @@
                     </div>
                 `;
             });
-            setTimeout(() => {
-                list.parentElement.scrollTo({ top: list.parentElement.scrollHeight, behavior: 'smooth' });
-            }, 100);
+            setTimeout(() => { list.parentElement.scrollTo({ top: list.parentElement.scrollHeight, behavior: 'smooth' }); }, 100);
         }
 
         document.getElementById('btn-u-reply').addEventListener('click', () => submitUniverseReply());
-        document.getElementById('u-reply-input').addEventListener('keydown', (e) => { 
-            if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitUniverseReply(); }
-        });
+        document.getElementById('u-reply-input').addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitUniverseReply(); } });
 
         async function submitUniverseReply() {
             if (!currentReadingPostId) return;
