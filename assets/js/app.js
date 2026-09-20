@@ -29,7 +29,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 import { applyAvatar } from "./avatar.js";
-import { currentDeviceTag, startScreenMark } from "./screenmark.js";
+import { currentDeviceTag } from "./device.js";
 import { embedImageWatermark, embedTextMark, markPayload } from "./watermark.js";
 import {
     cleanName,
@@ -161,7 +161,6 @@ const el = {
     btnReplySubmit: $("btn-u-reply"),
     legend: $("legend"),
     btnLegend: $("btn-legend"),
-    markLayer: $("mark-layer"),
 };
 
 /* ================= 狀態 ================= */
@@ -1636,7 +1635,6 @@ autoResizeAll();
 prefillInputs();
 state.avatar = readStoredAvatar();
 syncAvatarControls();
-startScreenMark(el.markLayer);
 applyAvatar(el.avatarPreview, el.nicknameInput.value, state.avatar, AVATAR_SIDE);
 applyAvatar(el.heroAvatar, "ChatChat", "", 192);
 void restoreSession();

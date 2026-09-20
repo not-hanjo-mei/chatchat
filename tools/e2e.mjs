@@ -157,10 +157,8 @@ $("nickname").value = "tester";
 $("nickname").dispatchEvent(new window.Event("change", { bubbles: true }));
 check("改暱稱不會拋錯（會記住上次輸入）", errors.length === 0, errors.join(" / "));
 
-const markLayer = $("mark-layer");
-const markTexts = markLayer ? Array.from(markLayer.querySelectorAll(".mark-text")) : [];
-check("畫面上有飄動的浮水印文字", markTexts.length >= 5, String(markTexts.length));
-check("浮水印顯示裝置標籤", markTexts[0]?.textContent === "unknown", markTexts[0]?.textContent ?? "");
+check("畫面上沒有可見的浮水印層",
+    $("mark-layer") === null && document.querySelectorAll(".mark-text").length === 0);
 click($("btn-create"));
 await flush(14);
 

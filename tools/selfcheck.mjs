@@ -278,7 +278,7 @@ check("頻率限制擋連點與爆量", () => {
 });
 
 /* ---------- 原始碼層級的迴歸檢查 ---------- */
-const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js", "assets/js/watermark.js", "assets/js/screenmark.js"];
+const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js", "assets/js/watermark.js", "assets/js/device.js"];
 const APP_JS = readFileSync("assets/js/app.js", "utf8");
 const INDEX_HTML = readFileSync("index.html", "utf8");
 const APP_CSS = readFileSync("assets/css/app.css", "utf8");
@@ -322,7 +322,7 @@ check("引用到的本地資產都存在（圖片、CSS、JS）", () => {
 });
 
 check("assets/js 裡的相對匯入都指得到檔案", () => {
-    for (const file of ["app.js", "avatar.js", "sanitize.js", "watermark.js", "screenmark.js"]) {
+    for (const file of ["app.js", "avatar.js", "sanitize.js", "watermark.js", "device.js"]) {
         const text = readFileSync(`assets/js/${file}`, "utf8");
         for (const match of text.matchAll(/from "\.\/([A-Za-z0-9_-]+)\.js"/g)) {
             assert.ok(existsSync(`assets/js/${match[1]}.js`), `${file} 匯入的 ${match[1]}.js 不存在`);

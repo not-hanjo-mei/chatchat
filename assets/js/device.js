@@ -1,27 +1,15 @@
 /* ==========================================================================
-   畫面浮水印層 - 讓一小段文字在畫面上緩慢飄動
+   裝置標籤 - 產生「機型 ＋ 裝置指紋」這串短標籤
    --------------------------------------------------------------------------
-   這一層是**看得見的**：目的是嚇阻與事後辨識，截圖或翻拍都會帶著它，肉眼可讀。
+   標籤會寫進訊息文字的隱形標記（watermark.js 的 embedTextMark）與送進房間的
+   圖片盲水印，用來在事後辨識是哪一台裝置留下的。
 
-   至於看不見的那一層寫在訊息文字裡（見 watermark.js 的 embedTextMark）：
-   人類外流最省事的做法是複製貼上，那條路會把零寬字元的標記一起帶走。
-
-   兩層都只顯示「目前這個使用者」的資訊，所以誰外流就追誰。
+   裝置指紋是用 canvas 畫一段固定圖樣再雜湊像素結果：字型、反鋸齒、GPU、色彩
+   處理都會影響輸出，所以這是「這台裝置」的特徵。比 user agent 可靠——UA 可以
+   造假、會被隱藏，也會隨版本變動；UA 只在 canvas 不可用時當後備。
    ========================================================================== */
 
 import { deviceModel } from "./sanitize.js";
-
-/* 同時在畫面上飄的份數。太多會干擾閱讀，太少則容易被裁掉。 */
-const MARK_COUNT = 9;
-
-/* 三組動畫輪流用，讓它們不同步 */
-const MOTIONS = ["mark-drift-a", "mark-drift-b", "mark-drift-c"];
-
-/** 浮水印文字：只有裝置標籤（機型＋裝置指紋） */
-export function markLabel(device) {
-    const tag = String(device ?? "").trim() || "unknown";
-    return tag;
-}
 
 /**
  * 裝置標籤：機型（可讀）＋ canvas 指紋（認得出是哪一台）。
@@ -95,29 +83,4 @@ export function currentDeviceTag() {
         cachedTag = deviceTag(userAgent, document.createElement("canvas"));
     }
     return cachedTag;
-}
-
-/**
- * 在容器裡鋪好浮水印文字並開始飄動。
- * @param {HTMLElement} container 覆蓋整個畫面的容器
- */
-export function startScreenMark(container) {
-    if (!container) return;
-
-    const marks = [];
-    for (let index = 0; index < MARK_COUNT; index += 1) {
-        const mark = document.createElement("span");
-        mark.className = "mark-text";
-        /* 起始位置平均分散，動畫各自不同相，才不會整排一起動 */
-        mark.style.left = `${((index * 37 + 4) % 82) + 4}%`;
-        mark.style.top = `${((index * 23 + 6) % 84) + 4}%`;
-        mark.style.animationName = MOTIONS[index % MOTIONS.length];
-        mark.style.animationDuration = `${44 + (index % 5) * 9}s`;
-        mark.style.animationDelay = `-${(index * 6) % 30}s`;
-        container.appendChild(mark);
-        marks.push(mark);
-    }
-
-    const text = markLabel(currentDeviceTag());
-    for (const mark of marks) mark.textContent = text;
 }

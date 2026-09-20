@@ -20,13 +20,13 @@ assets/css/app.css             設計系統：色票、亮暗主題、所有元�
 assets/js/app.js               應用邏輯：畫面切換、Firebase、訊息與宇宙
 assets/js/sanitize.js          輸入淨化與驗證（純函式，可單獨測試）
 assets/js/avatar.js            名字 → GrokBot 頭像（固定、可重現）
-assets/js/watermark.js         盲水印：畫面疊層與圖片兩種載體（純函式，可單獨測試）
-assets/js/screenmark.js        畫面標記層：canvas 疊層與裝置簽章
+assets/js/watermark.js         盲水印：文字隱形標記與圖片盲水印（純函式，可單獨測試）
+assets/js/device.js            裝置標籤：機型與 canvas 裝置指紋
 assets/js/vendor/grokbot.js    打包後的 grokbot 繪圖引擎（產物，要 commit）
 assets/img/*.webp              站台圖片（由 PNG 轉來）
 tailwind.input.css             Tailwind 的進入點（給重建指令用）
 tools/selfcheck.mjs            37 項自我檢查
-tools/e2e.mjs                  jsdom 端到端流程測試（41 項）
+tools/e2e.mjs                  jsdom 端到端流程測試（40 項）
 tools/watermark-roundtrip.mjs  真過一次 WebP 壓縮的盲水印往返與 SSIM
 tools/watermark-decode.mjs     從洩漏的圖片取出標記
 vendor/grokbot/                頭像引擎原始碼與授權（BSD-3-Clause）
@@ -76,26 +76,25 @@ npm test           # = selfcheck + e2e
 ```
 
 - **`tools/selfcheck.mjs`（37 項）**：輸入淨化、房號與圖片來源白名單、頻率限制、頭像可重現、程式碼裡沒有 `innerHTML` 或行內事件、`app.js` 取用的每個 id 都存在、每個被引用的資產都存在、CSS 括號成對。
-- **`tools/e2e.mjs`（41 項）**：在 jsdom 裡跑真正的 `app.js`（Firebase 換成 `tools/fb-stub.js`），走一遍「建立房間 → 按鈕送出 → Enter 送出 → 離開 → 重新整理自動回房 → 心情宇宙點星點 → 點心情看清單」。
+- **`tools/e2e.mjs`（40 項）**：在 jsdom 裡跑真正的 `app.js`（Firebase 換成 `tools/fb-stub.js`），走一遍「建立房間 → 按鈕送出 → Enter 送出 → 離開 → 重新整理自動回房 → 心情宇宙點星點 → 點心情看清單」。
   這個測試是必要的：靜態檢查抓不到「呼叫了不存在的 API」——`chatLimiter.allow()` 這個打字錯誤就是它抓到的（詳見 `SECURITY.md` 的變更記錄）。
 
-## 防複製與圖片盲水印
+## 防複製與水印
 
 - **防複製**：全站關閉文字選取、右鍵選單與複製／剪下事件（輸入框例外，要能編輯自己的草稿）。這是摩擦，不是防護。
-- **水印**：三層，內容都只有裝置標籤（機型＋裝置指紋，例如 `SM-G99-3k9v2`），強制開啟、沒有開關也沒有說明文字。
-  1. 看得見的畫面浮水印（`assets/js/screenmark.js`）：九段小字（裝置標籤）緩慢飄動，截圖帶得走。
-  2. 訊息文字的隱形標記（`watermark.js` 的 `embedTextMark`）：結尾插入零寬字元，複製貼上會一起走，不影響搜尋。
-  3. 送進房間的圖片：轉檔前寫入像素盲水印（DWT→區塊 DCT→SVD→QIM，移植自 [blind_watermark](https://github.com/guofei9987/blind_watermark)），耐 WebP 重新壓縮。
+- **水印**：兩層，內容都只有裝置標籤（機型＋裝置指紋，例如 `SM-G99-3k9v2`），強制開啟、畫面上完全看不到也沒有開關。
+  1. 訊息文字與心事內文的隱形標記（`watermark.js` 的 `embedTextMark`）：結尾插入零寬字元，複製貼上會一起走，不影響搜尋。
+  2. 送進房間的圖片：轉檔前寫入像素盲水印（DWT→區塊 DCT→SVD→QIM，移植自 [blind_watermark](https://github.com/guofei9987/blind_watermark)），耐重壓、加邊框、裁切與小幅縮放。
 
-  裝置簽章是 canvas 畫固定圖樣後的像素雜湊，不是 user agent。
+  裝置簽章是 canvas 畫固定圖樣後的像素雜湊，不是 user agent（`assets/js/device.js`）。
 
 ```bash
 npm run test:watermark                                   # 真的過一次 WebP 壓縮、量 SSIM（需要 ffmpeg 與 cwebp）
-node tools/watermark-decode.mjs leak.webp members.txt     # 從圖片取出標記並比對成員名單
-node tools/watermark-decode.mjs --text leak.txt members.txt   # 從複製出去的文字取出標記
+node tools/watermark-decode.mjs leak.webp                 # 從圖片取出標記
+node tools/watermark-decode.mjs --text leak.txt           # 從複製出去的文字取出標記
 ```
 
-限制：文字若被清掉零寬字元（例如又貼回本系統的輸入框）就取不回；圖片被大幅縮圖後需要工具掃描倍率。細節與實測表在 `SECURITY.md`。
+限制：文字若被清掉零寬字元（例如又貼回本系統的輸入框）就取不回；截圖本身不帶任何標記。細節與實測表在 `SECURITY.md`。
 
 ## 心情宇宙怎麼讀
 
