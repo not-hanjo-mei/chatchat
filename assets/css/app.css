@@ -184,11 +184,19 @@ img {
         linear-gradient(90deg, rgba(242, 240, 230, 0.04) 1px, transparent 1px);
 }
 
-/* ================= 加強限制 =================
-   房主可開：關右鍵、關選取、攔複製。 */
-.secure-mode {
+/* ================= 反選取與防複製 =================
+   全站關閉文字選取與右鍵選單，複製／剪下事件也一律攔掉（見 app.js）。
+   輸入框要能選字編輯，所以單獨開放。 */
+body {
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+input,
+textarea {
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 /* ================= 版面骨架 ================= */
@@ -760,12 +768,6 @@ body[data-screen="chat-screen"] .theme-toggle {
     .sidebar-panel.is-hidden {
         display: flex !important;
     }
-}
-
-.host-controls {
-    padding: 12px 14px;
-    background-color: var(--surface-2);
-    border-bottom: 1px solid var(--line);
 }
 
 .members {

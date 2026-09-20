@@ -33,7 +33,8 @@ function buildBundle(tag) {
         .replace(/"https:\/\/www\.gstatic\.com[^"]*firebase-app\.js"/, JSON.stringify(join(repo, "tools/fb-stub.js")))
         .replace(/"https:\/\/www\.gstatic\.com[^"]*firebase-database\.js"/, JSON.stringify(join(repo, "tools/fb-stub.js")))
         .replace(/from "\.\/sanitize\.js"/, `from ${JSON.stringify(join(repo, "assets/js/sanitize.js"))}`)
-        .replace(/from "\.\/avatar\.js"/, `from ${JSON.stringify(join(repo, "assets/js/avatar.js"))}`);
+        .replace(/from "\.\/avatar\.js"/, `from ${JSON.stringify(join(repo, "assets/js/avatar.js"))}`)
+        .replace(/from "\.\/watermark\.js"/, `from ${JSON.stringify(join(repo, "assets/js/watermark.js"))}`);
 
     const entry = join(workdir, `entry-${tag}.js`);
     const outfile = join(workdir, `bundle-${tag}.mjs`);
@@ -149,8 +150,8 @@ check("進房後記住房號與暱稱", remembered.roomId === "TESTROOM" && reme
     JSON.stringify(remembered));
 
 const copyEvent = new window.Event("copy", { bubbles: true, cancelable: true });
-document.dispatchEvent(copyEvent);
-check("沒開加強限制時可以複製（不影響無障礙與備份）", copyEvent.defaultPrevented === false);
+$("chat-messages").dispatchEvent(copyEvent);
+check("進房後複製就被攔（不分房主設定）", copyEvent.defaultPrevented === true);
 
 /* ---------- 送出訊息：按鈕 ---------- */
 $("message-input").value = "hello via button";
@@ -223,7 +224,7 @@ check("只有記住輸入不會自動進房", prefillDoc.body.dataset.screen ===
     `screen=${prefillDoc.body.dataset.screen}`);
 check("暱稱填回後頭像也跟著算", prefillDoc.getElementById("avatar-preview").src.startsWith("data:image/"));
 
-/* ---------- 加強限制模式：攔複製 ---------- */
+/* ---------- 反選取與防複製：不分房主，一律生效 ---------- */
 const lockedAlerts = [];
 const lockedWindow = await boot({
     tag: "locked",
@@ -232,15 +233,21 @@ const lockedWindow = await boot({
 });
 await flush(12);
 const lockedDoc = lockedWindow.document;
-{
-    const { ref: lockRef, set: lockSet } = await import(join(repo, "tools/fb-stub.js"));
-    await lockSet(lockRef(null, "rooms/TESTROOM/settings/secureMode"), true);
-}
-await flush(12);
-check("房主開啟後進入加強限制模式", lockedDoc.body.classList.contains("secure-mode"));
+
+check("房主的限制開關已經移除（改成一律生效）",
+    lockedDoc.getElementById("secure-toggle") === null && lockedDoc.getElementById("host-controls") === null);
+
 const lockedCopy = new lockedWindow.Event("copy", { bubbles: true, cancelable: true });
-lockedDoc.dispatchEvent(lockedCopy);
-check("加強限制模式下攔截複製", lockedCopy.defaultPrevented === true);
+lockedDoc.getElementById("chat-messages").dispatchEvent(lockedCopy);
+check("攔截複製訊息", lockedCopy.defaultPrevented === true);
+
+const lockedMenu = new lockedWindow.Event("contextmenu", { bubbles: true, cancelable: true });
+lockedDoc.getElementById("chat-messages").dispatchEvent(lockedMenu);
+check("攔截右鍵選單", lockedMenu.defaultPrevented === true);
+
+const draftCopy = new lockedWindow.Event("copy", { bubbles: true, cancelable: true });
+lockedDoc.getElementById("message-input").dispatchEvent(draftCopy);
+check("輸入框裡仍能複製自己打的字", draftCopy.defaultPrevented === false);
 
 /* ---------- 頭像記住 / 清除 ---------- */
 const AVATAR_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";

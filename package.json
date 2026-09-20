@@ -8,6 +8,7 @@
         "test": "node tools/selfcheck.mjs && node tools/e2e.mjs",
         "test:selfcheck": "node tools/selfcheck.mjs",
         "test:e2e": "node tools/e2e.mjs",
+        "test:watermark": "node tools/watermark-roundtrip.mjs",
         "build:css": "tailwindcss -i tailwind.input.css -o assets/css/tailwind.css --content \"index.html,assets/js/app.js,assets/js/avatar.js\" --minify"
     },
     "devDependencies": {

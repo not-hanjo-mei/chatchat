@@ -20,10 +20,14 @@ assets/css/app.css             設計系統：色票、亮暗主題、所有元�
 assets/js/app.js               應用邏輯：畫面切換、Firebase、訊息與宇宙
 assets/js/sanitize.js          輸入淨化與驗證（純函式，可單獨測試）
 assets/js/avatar.js            名字 → GrokBot 頭像（固定、可重現）
+assets/js/watermark.js         圖片盲水印：寫入與取出（純函式，可單獨測試）
 assets/js/vendor/grokbot.js    打包後的 grokbot 繪圖引擎（產物，要 commit）
 assets/img/*.webp              站台圖片（由 PNG 轉來）
 tailwind.input.css             Tailwind 的進入點（給重建指令用）
-tools/selfcheck.mjs            21 項自我檢查
+tools/selfcheck.mjs            31 項自我檢查
+tools/e2e.mjs                  jsdom 端到端流程測試（36 項）
+tools/watermark-roundtrip.mjs  真過一次 WebP 壓縮的盲水印往返與 SSIM
+tools/watermark-decode.mjs     從洩漏的圖片取出標記
 vendor/grokbot/                頭像引擎原始碼與授權（BSD-3-Clause）
 SECURITY.md                    安全現況、修好的部分、需要你動手做的部分
 ```
@@ -70,13 +74,21 @@ npm install        # 只有測試需要（jsdom）；網站本身零依賴
 npm test           # = selfcheck + e2e
 ```
 
-- **`tools/selfcheck.mjs`（24 項）**：輸入淨化、房號與圖片來源白名單、頻率限制、頭像可重現、程式碼裡沒有 `innerHTML` 或行內事件、`app.js` 取用的每個 id 都存在、每個被引用的資產都存在、CSS 括號成對。
-- **`tools/e2e.mjs`（22 項）**：在 jsdom 裡跑真正的 `app.js`（Firebase 換成 `tools/fb-stub.js`），走一遍「建立房間 → 按鈕送出 → Enter 送出 → 離開 → 重新整理自動回房 → 心情宇宙點星點 → 點心情看清單」。
+- **`tools/selfcheck.mjs`（31 項）**：輸入淨化、房號與圖片來源白名單、頻率限制、頭像可重現、程式碼裡沒有 `innerHTML` 或行內事件、`app.js` 取用的每個 id 都存在、每個被引用的資產都存在、CSS 括號成對。
+- **`tools/e2e.mjs`（36 項）**：在 jsdom 裡跑真正的 `app.js`（Firebase 換成 `tools/fb-stub.js`），走一遍「建立房間 → 按鈕送出 → Enter 送出 → 離開 → 重新整理自動回房 → 心情宇宙點星點 → 點心情看清單」。
   這個測試是必要的：靜態檢查抓不到「呼叫了不存在的 API」——`chatLimiter.allow()` 這個打字錯誤就是它抓到的（詳見 `SECURITY.md` 的變更記錄）。
 
-## 加強限制
+## 防複製與圖片盲水印
 
-房主可以在側邊欄開啟「加強限制」：關閉右鍵選單、文字選取與複製事件。它只攔隨手外流，devtools、reader mode、OCR 都繞得過，而且有心人會直接改抓資料庫。
+- **防複製**：全站關閉文字選取、右鍵選單與複製／剪下事件（輸入框例外，要能編輯自己的草稿）。這是摩擦，不是防護。
+- **圖片盲水印**：每一張送進房間的圖片在轉成 WebP 之前會被打上盲水印（`assets/js/watermark.js`，移植自 [blind_watermark](https://github.com/guofei9987/blind_watermark)：RGB→YUV→Haar 小波→區塊 DCT→SVD→QIM 量化，三個通道＋多數決）。標記是「上傳者指紋＋日期」，眼睛看不出來，不需要原圖就能取出。
+
+```bash
+npm run test:watermark                                  # 真的過一次 WebP 壓縮、量 SSIM（需要 ffmpeg 與 cwebp）
+node tools/watermark-decode.mjs leak.webp members.txt   # 取出標記並比對成員名單
+```
+
+限制：重新縮圖或裁切後取不回來；截圖無法承載標記（疊 canvas 的做法已實測不可行，見 `SECURITY.md`）。
 
 ## 心情宇宙怎麼讀
 

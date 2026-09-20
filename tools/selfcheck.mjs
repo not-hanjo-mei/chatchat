@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
+import { embedImageWatermark, extractImageWatermark, fingerprint, markPayload } from "../assets/js/watermark.js";
 import {
     cleanName,
     cleanText,
@@ -119,6 +120,81 @@ check("SVG 文字有跳脫，無法提早關閉 <text> 標籤", () => {
     assert.equal(escapeXml('say "hi"'), "say &quot;hi&quot;");
 });
 
+/* ---------- 圖片盲水印 ---------- */
+/* 用固定種子的合成紋理圖，不依賴瀏覽器 canvas 或外部檔案。 */
+function watermarkImage(width, height) {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    let seed = 20260920;
+    const random = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const at = (y * width + x) * 4;
+            const base = 120 + 40 * Math.sin(x / 9) * Math.cos(y / 7) + random() * 24;
+            pixels[at] = base;
+            pixels[at + 1] = base * 0.9 + 10;
+            pixels[at + 2] = base * 0.75 + 25;
+            pixels[at + 3] = 255;
+        }
+    }
+    return pixels;
+}
+
+check("標記內容是指紋加日期，長度固定且可回推", () => {
+    assert.equal(markPayload("user_mayo_audit", 0), "wd64d9.0");
+    assert.equal(markPayload("user_mayo_audit", 1770000000000), "wd64d9.ft2");
+    assert.equal(fingerprint("mayonnaise"), 3621736253);
+    assert.ok(markPayload("x".repeat(400)).length <= 13, "標記內容超過負載長度");
+});
+
+check("寫進圖片再取出來，內容一致", () => {
+    const pixels = watermarkImage(640, 480);
+    assert.ok(embedImageWatermark(pixels, 640, 480, "wd64d9.ft2"), "寫不進去");
+    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.ft2");
+});
+
+check("標記改動幅度小到看不出來", () => {
+    const before = watermarkImage(640, 480);
+    const after = Uint8ClampedArray.from(before);
+    embedImageWatermark(after, 640, 480, "wd64d9.ft2");
+    let total = 0;
+    let worst = 0;
+    for (let i = 0; i < after.length; i += 4) {
+        const delta = Math.abs(after[i] - before[i]);
+        total += delta;
+        if (delta > worst) worst = delta;
+    }
+    assert.ok(total / (after.length / 4) < 8, `平均差 ${total / (after.length / 4)} 過大`);
+    assert.ok(worst <= 40, `最大差 ${worst} 過大`);
+});
+
+check("加一點雜訊後仍取得回標記", () => {
+    const pixels = watermarkImage(640, 480);
+    embedImageWatermark(pixels, 640, 480, "wd64d9.ft2");
+    let seed = 5;
+    const random = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
+    for (let i = 0; i < pixels.length; i++) {
+        if (i % 4 === 3) continue;
+        pixels[i] = Math.max(0, Math.min(255, pixels[i] + Math.round((random() - 0.5) * 12)));
+    }
+    assert.equal(extractImageWatermark(pixels, 640, 480), "wd64d9.ft2");
+});
+
+check("沒寫標記的圖取不到東西", () => {
+    assert.equal(extractImageWatermark(watermarkImage(640, 480), 640, 480), "");
+});
+
+check("太小的圖不寫，也不亂回東西", () => {
+    const pixels = watermarkImage(96, 96);
+    assert.equal(embedImageWatermark(pixels, 96, 96, "wd64d9.ft2"), false);
+    assert.equal(extractImageWatermark(pixels, 96, 96), "");
+});
+
+check("不合規的標記內容直接拒絕", () => {
+    const pixels = watermarkImage(640, 480);
+    assert.equal(embedImageWatermark(pixels, 640, 480, "這是中文標記"), false);
+    assert.equal(embedImageWatermark(pixels, 640, 480, "x".repeat(20)), false);
+});
+
 /* ---------- 時間 ---------- */
 check("時間戳防呆", () => {
     assert.equal(safeTimestamp(1700000000000), 1700000000000);
@@ -157,7 +233,7 @@ check("頻率限制擋連點與爆量", () => {
 });
 
 /* ---------- 原始碼層級的迴歸檢查 ---------- */
-const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js"];
+const SOURCE_FILES = ["index.html", "assets/js/app.js", "assets/js/avatar.js", "assets/js/sanitize.js", "assets/js/watermark.js"];
 const APP_JS = readFileSync("assets/js/app.js", "utf8");
 const INDEX_HTML = readFileSync("index.html", "utf8");
 const APP_CSS = readFileSync("assets/css/app.css", "utf8");

@@ -23,13 +23,13 @@ import {
     onDisconnect,
     remove,
     get,
-    update,
     query,
     orderByChild,
     limitToLast,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 import { applyAvatar } from "./avatar.js";
+import { embedImageWatermark, markPayload } from "./watermark.js";
 import {
     cleanName,
     cleanText,
@@ -41,7 +41,6 @@ import {
     safeEmoji,
     safeImageSrc,
     safeTimestamp,
-    escapeXml,
     createRateLimiter,
     MAX_MESSAGE,
     MAX_POST,
@@ -126,8 +125,6 @@ const el = {
     btnMenu: $("btn-menu"),
     btnPickBg: $("btn-pick-bg"),
     bgInput: $("bg-input"),
-    hostControls: $("host-controls"),
-    secureToggle: $("secure-toggle"),
     membersList: $("members-list"),
     btnLeave: $("btn-leave"),
     btnLeavePanel: $("btn-leave-panel"),
@@ -163,7 +160,6 @@ const el = {
     btnReplySubmit: $("btn-u-reply"),
     legend: $("legend"),
     btnLegend: $("btn-legend"),
-    appStatus: $("app-status"),
 };
 
 /* ================= 狀態 ================= */
@@ -208,10 +204,6 @@ function createUserId() {
 }
 
 /* ================= 小工具 ================= */
-function announce(text) {
-    el.appStatus.textContent = text;
-}
-
 function showNotice(text) {
     el.composerNotice.textContent = text;
     setHidden(el.composerNotice, !text);
@@ -314,10 +306,7 @@ function switchScreen(screenId) {
     el.body.dataset.screen = screenId;
     /* 換畫面後輸入框才量得到高度，這時才能把自動長高算對 */
     autoResizeAll();
-    if (screenId !== "chat-screen") {
-        el.body.classList.remove("secure-mode");
-        toggleMenu(false);
-    }
+    if (screenId !== "chat-screen") toggleMenu(false);
 }
 
 for (const button of document.querySelectorAll("[data-goto]")) {
@@ -347,8 +336,11 @@ function loadImage(dataUrl) {
  * 縮圖並轉成 WebP，避免 base64 把資料庫撐肥。
  * 若瀏覽器無法解碼（例如部分瀏覽器讀不了 iPhone 的 HEIC），就退回原始檔，
  * 最後再檢查長度上限。
+ *
+ * mark = true 時，在轉檔前把盲水印寫進像素（見 watermark.js）。只有送進房間的
+ * 圖片需要，頭像與自己的聊天背景留在本機，不做處理。
  */
-async function prepareImage(file, maxSide) {
+async function prepareImage(file, maxSide, { mark = false } = {}) {
     if (!file || !file.type.startsWith("image/")) throw new Error("只接受圖片檔案");
     if (file.size > MAX_UPLOAD_BYTES) throw new Error("圖片請小於 2MB");
 
@@ -367,8 +359,10 @@ async function prepareImage(file, maxSide) {
         const context = canvas.getContext("2d");
         if (context) {
             context.drawImage(image, 0, 0, width, height);
+            if (mark) stampImage(context, width, height);
             const compressed = canvas.toDataURL("image/webp", 0.82);
-            if (compressed.startsWith("data:image/webp") && compressed.length < original.length) {
+            /* 有寫標記時一定要用 canvas 這份（原檔沒有標記），不管哪個比較小 */
+            if (compressed.startsWith("data:image/webp") && (mark || compressed.length < original.length)) {
                 output = compressed;
             }
         }
@@ -380,11 +374,25 @@ async function prepareImage(file, maxSide) {
     return output;
 }
 
-async function handleImagePick(input, maxSide, onReady) {
+/*
+ * 盲水印：把「誰上傳的、哪一天」寫進圖片低頻區塊，肉眼看不出來，但取出時不需要
+ * 原圖。取不回原尺寸（被平台縮圖）時整張圖都不會變樣，只是標記失效。
+ */
+function stampImage(context, width, height) {
+    try {
+        const snapshot = context.getImageData(0, 0, width, height);
+        const payload = markPayload(state.userId);
+        if (embedImageWatermark(snapshot.data, width, height, payload)) context.putImageData(snapshot, 0, 0);
+    } catch (error) {
+        console.warn("圖片標記失敗，改用原圖：", error.message);
+    }
+}
+
+async function handleImagePick(input, maxSide, onReady, options = {}) {
     const file = input.files?.[0];
     if (!file) return;
     try {
-        onReady(await prepareImage(file, maxSide));
+        onReady(await prepareImage(file, maxSide, options));
     } catch (error) {
         warn("圖片無法使用", error.message);
     } finally {
@@ -626,14 +634,6 @@ function setupChatListeners() {
     const stillHere = () => state.active && state.roomId === roomId;
 
     state.active = true;
-    state.unsubscribe.push(
-        onValue(ref(db, `rooms/${roomId}/settings/secureMode`), (snapshot) => {
-            if (!stillHere()) return;
-            const isSecure = snapshot.val() === true;
-            el.body.classList.toggle("secure-mode", isSecure);
-            el.secureToggle.checked = isSecure;
-        }),
-    );
 
     state.unsubscribe.push(
         onValue(ref(db, `rooms/${roomId}/members`), (snapshot) => {
@@ -730,7 +730,6 @@ async function syncRoomState() {
     }
 
     setHidden(el.btnDisband, !state.isHost);
-    setHidden(el.hostControls, !state.isHost);
     renderMembers();
 }
 
@@ -950,7 +949,7 @@ el.messageInput.addEventListener("keydown", (event) => {
 el.btnPickImage.addEventListener("click", () => el.chatImgInput.click());
 
 el.chatImgInput.addEventListener("change", () => {
-    handleImagePick(el.chatImgInput, MAX_IMAGE_SIDE, (dataUrl) => sendChatMessage(dataUrl));
+    handleImagePick(el.chatImgInput, MAX_IMAGE_SIDE, (dataUrl) => sendChatMessage(dataUrl), { mark: true });
 });
 
 async function sendChatMessage(imageDataUrl = "") {
@@ -1095,23 +1094,12 @@ function leaveRoom(message) {
     el.chatMessages.replaceChildren();
     el.membersList.replaceChildren();
     el.chat.style.backgroundImage = "";
-    el.body.classList.remove("secure-mode");
     switchScreen("landing-screen");
     showNotice("");
     if (message) warn(message);
 }
 
-/* ================= 提醒模式與其他介面事件 ================= */
-el.secureToggle.addEventListener("change", async () => {
-    if (!state.roomId) return;
-    try {
-        await update(ref(db, `rooms/${state.roomId}/settings`), { secureMode: el.secureToggle.checked });
-    } catch (error) {
-        console.warn("提醒模式設定失敗：", error.message);
-        warn("設定沒有生效", "請稍後再試。");
-    }
-});
-
+/* ================= 其他介面事件 ================= */
 el.btnMenu.addEventListener("click", () => {
     toggleMenu(el.sidebarPanel.classList.contains("is-hidden"));
 });
@@ -1121,17 +1109,21 @@ el.btnPickBg.addEventListener("click", () => el.bgInput.click());
 /* 手機版：點訊息區就收起側邊選單 */
 el.chatMessages.addEventListener("click", () => toggleMenu(false));
 
+/*
+ * 全站關閉文字選取（見 app.css），這裡再攔事件：右鍵選單、複製、剪下都不作用，
+ * 但輸入框與文字區要能編輯與複製自己的草稿，所以放行。
+ * 這是「不讓訊息被順手帶走」的摩擦，不是防護：devtools、reader mode、OCR 都繞得過。
+ */
+/* 用 closest 判斷，不用 instanceof Element：少一個全域依賴，測試環境也跑得動 */
+const isEditable = (target) => Boolean(target?.closest?.("input, textarea"));
+
 document.addEventListener("contextmenu", (event) => {
-    if (el.body.classList.contains("secure-mode")) event.preventDefault();
+    if (!isEditable(event.target)) event.preventDefault();
 });
 
-/* 加強限制模式才攔複製：平常讓大家能複製自己的內容（無障礙與備份需求），
-   真的要防的是「隨手外流」，而這攔不住有心人。 */
 for (const type of ["copy", "cut"]) {
     document.addEventListener(type, (event) => {
-        if (!el.body.classList.contains("secure-mode")) return;
-        event.preventDefault();
-        announce("加強限制模式已關閉複製。");
+        if (!isEditable(event.target)) event.preventDefault();
     });
 }
 
