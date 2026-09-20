@@ -27,8 +27,8 @@
         
         /* 星點高質感呼吸閃爍動畫 */
         @keyframes starPulse {
-            0%, 100% { transform: scale(1); opacity: 0.9; filter: drop-shadow(0 0 8px currentColor); }
-            50% { transform: scale(1.3); opacity: 1; filter: drop-shadow(0 0 16px currentColor); }
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px currentColor); }
+            50% { transform: scale(1.35); filter: drop-shadow(0 0 14px currentColor); }
         }
         .custom-star {
             animation: starPulse 2.5s infinite ease-in-out;
@@ -461,7 +461,6 @@
         //                 PART B: 心情宇宙邏輯
         // ====================================================
         
-        // 完美對應你繪製的 6 顆星球與精準吸色設定
         const PLANETS = {
             'happy': { name: '開心', img: './happy.png',    color: '#fde047', glow: 'rgba(253,224,71,0.6)', top: 20, left: 30 },
             'bored': { name: '無聊', img: './bored.png',    color: '#9ca3af', glow: 'rgba(156,163,175,0.6)', top: 20, left: 70 },
@@ -509,11 +508,20 @@
 
         function listenToUniverse() {
             const postsRef = ref(db, 'universe/posts');
-            onChildAdded(postsRef, (snap) => renderStar(snap.key, snap.val()));
-            onChildChanged(postsRef, (snap) => updateStarReplies(snap.key, snap.val()));
+            // 🔥 強制監聽新增與變更，確保畫面上的所有光點（包含資料庫中已存在的舊光點）全部重新渲染為新樣式
+            onValue(postsRef, (snapshot) => {
+                const container = document.getElementById('stars-container');
+                container.innerHTML = ''; // 清空舊渲染避免重複
+                const posts = snapshot.val();
+                if (posts) {
+                    for (const [postId, data] of Object.entries(posts)) {
+                        renderStar(postId, data);
+                    }
+                }
+            });
         }
 
-        // 渲染美化過的主星點 (採用星芒發光與雙層環繞結構)
+        // 渲染美化過的主星點 (強制套用對應星球的專屬色彩與精緻星芒)
         function renderStar(postId, data) {
             const container = document.getElementById('stars-container');
             const p = PLANETS[data.emotion];
@@ -521,21 +529,18 @@
 
             const starDiv = document.createElement('div');
             starDiv.id = `ustar-${postId}`;
-            // 賦予從星球吸色而來的精準顏色與自訂的呼吸閃爍特效
             starDiv.className = `absolute cursor-pointer custom-star z-20 flex items-center justify-center`;
             starDiv.style.top = `calc(${p.top}% + ${data.offsetY}vh)`;
             starDiv.style.left = `calc(${p.left}% + ${data.offsetX}vw)`;
-            starDiv.style.color = p.color; // 讓 currentColor 能直接讀取星球色碼
             
-            // 繪製精緻的十字星芒與核心亮點
+            // 🔥 直接使用星球的專屬 color 屬性，確保已有的光點與新光點顏色完全一致
             starDiv.innerHTML = `
-                <div class="absolute w-4 h-4 rounded-full bg-white opacity-40 blur-[1px]"></div>
+                <div class="absolute w-5 h-5 rounded-full opacity-35 blur-[2px]" style="background-color: ${p.color};"></div>
                 <div class="relative w-3.5 h-3.5 rounded-full shadow-md" style="background-color: ${p.color}; box-shadow: 0 0 12px ${p.color}, 0 0 20px #fff;"></div>
             `;
             
             starDiv.onclick = () => openUniverseReadModal(postId, data);
             
-            // 回覆軌道容器
             const replyContainer = document.createElement('div');
             replyContainer.id = `ureply-${postId}`;
             replyContainer.className = 'reply-orbit';
@@ -554,7 +559,7 @@
 
             const replies = Object.values(data.replies);
             const count = replies.length;
-            const radius = 18; // 稍微拉開距離，讓回覆更有層次
+            const radius = 18; 
 
             replies.forEach((reply, index) => {
                 const angle = (index / count) * Math.PI * 2;
@@ -650,7 +655,7 @@
 
         async function submitUniverseReply() {
             if (!currentReadingPostId) return;
-            const text = document.getElementById('u-reply-input').value.trim();
+            const text = document.getElementById('u-reply-input'].value.trim();
             if (!text) return;
 
             const myName = document.getElementById('nickname').value || myNickname || '匿名旅人';
