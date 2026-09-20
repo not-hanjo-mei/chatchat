@@ -15,88 +15,94 @@
         .watermark { pointer-events: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: none; background-repeat: repeat; }
         .secure-mode .watermark { display: block; }
 
-        /* ================= 高質感像素風 (Hi-Bit Retro UI) ================= */
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b0f19; }
+        /* ================= 經典像素風 (Hi-Bit Retro UI) ================= */
+        body { font-family: 'Courier New', Courier, monospace, sans-serif; background-color: #0b0f19; }
 
-        /* 大廳與宇宙背景 */
+        /* 復古點陣背景 */
         .lobby-bg {
             background-color: #0c0c14;
             background-image: 
-                radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.2) 0%, transparent 60%),
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 100% 100%, 24px 24px, 24px 24px;
+                radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
+                linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
         }
 
-        /* 像素方塊容器 */
+        /* 像素硬派方塊容器 (無模糊陰影，純粹厚邊框) */
         .pixel-box {
             background-color: #111827;
-            border: 3px solid #374151;
-            border-radius: 10px;
-            box-shadow: 6px 6px 0px 0px #030712, inset 0 2px 0 rgba(255, 255, 255, 0.1);
+            border: 4px solid #1f2937;
+            border-radius: 4px;
+            box-shadow: 8px 8px 0px 0px #000000;
+        }
+        .pixel-box-light {
+            background-color: #f8fafc;
+            border: 4px solid #1f2937;
+            border-radius: 4px;
+            box-shadow: 8px 8px 0px 0px #000000;
         }
 
         /* 經典像素按鈕與真實按壓動效 */
         .pixel-btn {
             background-color: #374151;
             color: #ffffff;
-            border: 2px solid #1f2937;
-            box-shadow: 4px 4px 0px 0px #030712;
-            transition: all 0.08s ease;
+            border: 3px solid #111827;
+            box-shadow: 5px 5px 0px 0px #000000;
+            transition: all 0.05s ease;
             font-weight: 900;
         }
         .pixel-btn:hover { background-color: #4b5563; }
         .pixel-btn:active {
-            box-shadow: 0px 0px 0px 0px #030712;
-            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px 0px #000000;
+            transform: translate(5px, 5px);
         }
 
         /* 主色按鈕 (靛藍) */
         .pixel-btn-indigo {
             background-color: #4f46e5;
-            border: 2px solid #1f2937;
-            box-shadow: 4px 4px 0px 0px #030712;
+            border: 3px solid #111827;
+            box-shadow: 5px 5px 0px 0px #000000;
             color: white;
-            transition: all 0.08s ease;
+            transition: all 0.05s ease;
         }
         .pixel-btn-indigo:hover { background-color: #6366f1; }
         .pixel-btn-indigo:active {
-            box-shadow: 0px 0px 0px 0px #030712;
-            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px 0px #000000;
+            transform: translate(5px, 5px);
         }
 
         /* 警示按鈕 (紅) */
         .pixel-btn-red {
             background-color: #dc2626;
-            border: 2px solid #1f2937;
-            box-shadow: 4px 4px 0px 0px #030712;
+            border: 3px solid #111827;
+            box-shadow: 5px 5px 0px 0px #000000;
             color: white;
-            transition: all 0.08s ease;
+            transition: all 0.05s ease;
         }
         .pixel-btn-red:hover { background-color: #ef4444; }
         .pixel-btn-red:active {
-            box-shadow: 0px 0px 0px 0px #030712;
-            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px 0px #000000;
+            transform: translate(5px, 5px);
         }
 
         /* 聊天氣泡 */
         .pixel-bubble-me {
             background-color: #4f46e5;
             color: white;
-            border: 2px solid #1f2937;
-            box-shadow: 3px 3px 0px 0px #030712;
+            border: 3px solid #111827;
+            box-shadow: 4px 4px 0px 0px #000000;
         }
         .pixel-bubble-other {
             background-color: #ffffff;
             color: #1f2937;
-            border: 2px solid #1f2937;
-            box-shadow: 3px 3px 0px 0px #030712;
+            border: 3px solid #111827;
+            box-shadow: 4px 4px 0px 0px #000000;
         }
 
         /* 像素頭像 */
         .pixel-avatar {
-            border: 2px solid #1f2937;
-            border-radius: 6px;
+            border: 3px solid #111827;
+            border-radius: 2px;
             background-color: white;
             image-rendering: pixelated;
         }
@@ -112,29 +118,29 @@
         }
         
         /* 動畫 */
-        .modal-enter { animation: pixelPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .modal-enter { animation: pixelPop 0.2s steps(4, end) forwards; }
         @keyframes pixelPop {
-            from { opacity: 0; transform: scale(0.92); }
+            from { opacity: 0; transform: scale(0.9); }
             to { opacity: 1; transform: scale(1); }
         }
         
-        .msg-enter { animation: slideUpStep 0.2s ease-out forwards; }
+        .msg-enter { animation: slideUpStep 0.15s ease-out forwards; }
         @keyframes slideUpStep {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         @keyframes starPulse {
-            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px currentColor); }
-            50% { transform: scale(1.3); filter: drop-shadow(0 0 14px currentColor); }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); }
         }
-        .custom-star { animation: starPulse 2.5s infinite steps(4, end); }
+        .custom-star { animation: starPulse 2s infinite steps(2, end); }
         
         @keyframes float {
             0%, 100% { transform: translate(-50%, -50%); }
             50% { transform: translate(-50%, calc(-50% - 6px)); }
         }
-        .planet-float { animation: float 4s steps(4, end) infinite; }
+        .planet-float { animation: float 4s ease-in-out infinite; }
         
         .reply-orbit { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; pointer-events: none; }
     </style>
@@ -147,16 +153,16 @@
     <!-- ==================== 1. 入口大廳 ==================== -->
     <div id="landing-screen" class="absolute inset-0 flex flex-col items-center justify-center z-50 px-4">
         <div class="pixel-box p-6 md:p-12 text-center max-w-xl w-full mx-auto modal-enter">
-            <h1 class="text-3xl md:text-5xl font-black mb-3 tracking-widest text-indigo-400 drop-shadow-[2px_2px_0_#000] uppercase">專屬空間</h1>
-            <p class="text-gray-400 text-xs md:text-sm mb-8 tracking-[0.2em] font-bold border-b-2 border-dashed border-gray-700 pb-4">SELECT YOUR DESTINATION</p>
+            <h1 class="text-3xl md:text-5xl font-black mb-3 tracking-widest text-indigo-400 drop-shadow-[3px_3px_0_#000] uppercase">專屬空間</h1>
+            <p class="text-gray-400 text-xs md:text-sm mb-8 tracking-[0.2em] font-bold border-b-4 border-dashed border-gray-700 pb-4">SELECT YOUR DESTINATION</p>
             
             <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-5">
-                <button onclick="switchScreen('setup-screen')" class="flex-1 pixel-btn p-5 rounded-xl text-left group">
+                <button onclick="switchScreen('setup-screen')" class="flex-1 pixel-btn p-5 rounded text-left group">
                     <div class="text-3xl mb-2 transform group-hover:-translate-y-1 transition-transform inline-block">💬</div>
                     <h2 class="text-base font-black mb-1 text-white tracking-wider">ChatChat 聊天室</h2>
                     <p class="text-xs text-gray-400 font-bold">建立房號，加密對話</p>
                 </button>
-                <button onclick="enterUniverse()" class="flex-1 pixel-btn p-5 rounded-xl text-left group bg-indigo-950/80">
+                <button onclick="enterUniverse()" class="flex-1 pixel-btn p-5 rounded text-left group bg-indigo-950">
                     <div class="text-3xl mb-2 transform group-hover:-translate-y-1 transition-transform inline-block">🌌</div>
                     <h2 class="text-base font-black mb-1 text-pink-300 tracking-wider">前往心情宇宙</h2>
                     <p class="text-xs text-indigo-300 font-bold">化作星點，分享心事</p>
@@ -166,52 +172,51 @@
     </div>
 
     <!-- ==================== 2. 聊天室：登入/建立畫面 ==================== -->
-    <div id="setup-screen" class="hidden absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-40 p-4">
+    <div id="setup-screen" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-40 p-4">
         <div class="pixel-box p-6 md:p-8 w-full max-w-md relative modal-enter">
-            <button onclick="switchScreen('landing-screen')" class="absolute top-4 left-4 text-gray-300 font-bold text-xs pixel-btn px-3 py-1 rounded-md">
+            <button onclick="switchScreen('landing-screen')" class="absolute top-4 left-4 text-gray-300 font-bold text-xs pixel-btn px-3 py-1 rounded">
                 ← 返回
             </button>
             <h1 class="text-2xl font-black mb-6 mt-3 text-center text-indigo-400 tracking-wider uppercase drop-shadow-[2px_2px_0_#000]">ChatChat</h1>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-black text-gray-300 mb-1.5 tracking-wider uppercase">房間號碼 (ROOM ID)</label>
-                    <input type="text" id="room-id" placeholder="請輸入房號..." class="w-full bg-gray-900 border-2 border-gray-700 rounded-md p-3 focus:bg-gray-800 focus:border-indigo-500 focus:outline-none text-white font-bold text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+                    <input type="text" id="room-id" placeholder="請輸入房號..." class="w-full bg-gray-900 border-3 border-gray-700 rounded p-3 focus:bg-gray-800 focus:border-indigo-500 focus:outline-none text-white font-bold text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
                 </div>
                 <div>
                     <label class="block text-xs font-black text-gray-300 mb-1.5 tracking-wider uppercase">暱稱 (PLAYER NAME)</label>
-                    <input type="text" id="nickname" maxlength="10" placeholder="最多10字..." class="w-full bg-gray-900 border-2 border-gray-700 rounded-md p-3 focus:bg-gray-800 focus:border-indigo-500 focus:outline-none text-white font-bold text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+                    <input type="text" id="nickname" maxlength="10" placeholder="最多10字..." class="w-full bg-gray-900 border-3 border-gray-700 rounded p-3 focus:bg-gray-800 focus:border-indigo-500 focus:outline-none text-white font-bold text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
                 </div>
                 <div>
                     <label class="block text-xs font-black text-gray-300 mb-1.5 tracking-wider uppercase">自訂頭像 (AVATAR)</label>
-                    <input type="file" id="avatar-input" accept="image/*" class="w-full text-xs font-bold text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:border-2 file:border-gray-700 file:rounded-md file:text-xs file:font-black file:bg-gray-800 file:text-white cursor-pointer pixel-btn p-1">
+                    <input type="file" id="avatar-input" accept="image/*" class="w-full text-xs font-bold text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:border-3 file:border-gray-700 file:rounded file:text-xs file:font-black file:bg-gray-800 file:text-white cursor-pointer pixel-btn p-1">
                     <img id="avatar-preview" class="mt-2 w-14 h-14 pixel-avatar object-cover hidden shadow-md" />
                 </div>
                 <div class="flex space-x-3 pt-4">
-                    <button id="btn-create" class="flex-1 pixel-btn-indigo py-3 rounded-md text-sm tracking-widest uppercase">建立</button>
-                    <button id="btn-join" class="flex-1 pixel-btn bg-emerald-600 hover:bg-emerald-500 py-3 rounded-md text-sm tracking-widest uppercase">加入</button>
+                    <button id="btn-create" class="flex-1 pixel-btn-indigo py-3 rounded text-sm tracking-widest uppercase">建立</button>
+                    <button id="btn-join" class="flex-1 pixel-btn bg-emerald-600 hover:bg-emerald-500 py-3 rounded text-sm tracking-widest uppercase">加入</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- ==================== 3. 聊天室：對話畫面 ==================== -->
-    <div id="chat-screen" class="hidden absolute inset-0 md:p-4 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div id="chat-screen" class="hidden absolute inset-0 md:p-4 z-30 flex items-center justify-center bg-black/70">
         
         <div class="w-full h-full md:max-w-6xl md:h-[92vh] pixel-box flex flex-col md:flex-row overflow-hidden relative modal-enter">
             
             <!-- 側邊欄 -->
-            <div class="w-full md:w-72 bg-gray-900 border-b-2 md:border-b-0 md:border-r-2 border-gray-700 flex flex-col z-20 flex-shrink-0">
-                <div class="p-3.5 md:p-4 flex justify-between items-center border-b-2 border-gray-700 bg-gray-800">
+            <div class="w-full md:w-72 bg-gray-900 border-b-4 md:border-b-0 md:border-r-4 border-gray-700 flex flex-col z-20 flex-shrink-0">
+                <div class="p-3.5 md:p-4 flex justify-between items-center border-b-4 border-gray-700 bg-gray-800">
                     <h2 class="font-black text-gray-200 text-xs md:text-sm tracking-wide">房號: <span id="display-room-id" class="text-indigo-400"></span></h2>
                     <button class="md:hidden pixel-btn px-2.5 py-1 rounded text-xs font-black" onclick="document.getElementById('mobile-sidebar-content').classList.toggle('hidden')">
                         選單 ▾
                     </button>
                 </div>
 
-                <!-- 手機側邊欄選單 (改為 max-h-[55vh] 並支援捲動，確保解散/退出按鈕絕對看得到) -->
-                <div id="mobile-sidebar-content" class="hidden md:flex flex-col flex-1 h-auto max-h-[55vh] md:max-h-none overflow-y-auto bg-gray-900 absolute md:relative top-[57px] md:top-0 left-0 w-full md:w-auto shadow-2xl md:shadow-none border-b-2 md:border-0 border-gray-700 z-50 no-scrollbar">
+                <div id="mobile-sidebar-content" class="hidden md:flex flex-col flex-1 h-auto max-h-[55vh] md:max-h-none overflow-y-auto bg-gray-900 absolute md:relative top-[57px] md:top-0 left-0 w-full md:w-auto shadow-2xl md:shadow-none border-b-4 md:border-0 border-gray-700 z-50 no-scrollbar">
                     
-                    <div class="p-2.5 border-b-2 border-gray-700 bg-gray-800/60 sticky top-0 z-10 backdrop-blur-md">
+                    <div class="p-2.5 border-b-4 border-gray-700 bg-gray-800/80 sticky top-0 z-10">
                         <button class="w-full pixel-btn py-2 rounded text-xs flex justify-center items-center space-x-1.5" onclick="document.getElementById('bg-input').click()">
                             <span>🖼️</span> <span>更換聊天室背景</span>
                         </button>
@@ -219,17 +224,17 @@
                     </div>
                     
                     <!-- 房主專屬 -->
-                    <div id="host-controls" class="hidden p-2.5 border-b-2 border-gray-700 bg-red-950/50">
+                    <div id="host-controls" class="hidden p-2.5 border-b-4 border-gray-700 bg-red-950/60">
                         <label class="flex items-center justify-between text-xs font-black text-red-400 cursor-pointer">
                             <span>🛡️ 防截圖機密模式</span>
-                            <input type="checkbox" id="secure-toggle" class="form-checkbox text-red-600 rounded border-2 border-red-700 w-4 h-4 bg-black">
+                            <input type="checkbox" id="secure-toggle" class="form-checkbox text-red-600 rounded border-3 border-red-700 w-4 h-4 bg-black">
                         </label>
                     </div>
 
-                    <div class="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-800 border-b-2 border-gray-700">PLAYERS</div>
-                    <div class="p-2.5 space-y-2 bg-gray-900/80" id="members-list"></div>
+                    <div class="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-800 border-b-4 border-gray-700">PLAYERS</div>
+                    <div class="p-2.5 space-y-2 bg-gray-900" id="members-list"></div>
 
-                    <div class="p-2.5 border-t-2 border-gray-700 bg-gray-800 space-y-2 mt-auto">
+                    <div class="p-2.5 border-t-4 border-gray-700 bg-gray-800 space-y-2 mt-auto">
                         <button id="btn-leave" class="w-full pixel-btn py-2 rounded text-xs tracking-wider">退出 EXIT</button>
                         <button id="btn-disband" class="hidden w-full pixel-btn-red py-2 rounded text-xs tracking-wider">解散 DISBAND</button>
                     </div>
@@ -241,19 +246,19 @@
                 <div class="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 no-scrollbar" id="chat-messages"></div>
                 
                 <!-- 回覆預覽 -->
-                <div id="reply-preview" class="hidden bg-indigo-950 border-t-2 border-gray-700 p-2 text-xs flex justify-between items-center">
+                <div id="reply-preview" class="hidden bg-indigo-950 border-t-4 border-gray-700 p-2 text-xs flex justify-between items-center">
                     <span class="text-indigo-200 font-bold truncate">REPLY <strong id="reply-to-name" class="font-black text-white"></strong></span>
                     <button onclick="window.cancelReply()" class="pixel-btn w-5 h-5 flex items-center justify-center rounded text-red-400 font-black text-xs">✕</button>
                 </div>
 
                 <!-- 輸入區 -->
-                <div class="p-2.5 md:p-4 bg-gray-900 border-t-2 border-gray-700 flex items-end space-x-2">
-                    <button onclick="document.getElementById('chat-img-input').click()" class="pixel-btn p-2.5 rounded-md flex-shrink-0 text-sm">📷</button>
+                <div class="p-2.5 md:p-4 bg-gray-900 border-t-4 border-gray-700 flex items-end space-x-2">
+                    <button onclick="document.getElementById('chat-img-input').click()" class="pixel-btn p-2.5 rounded flex-shrink-0 text-sm">📷</button>
                     <input type="file" id="chat-img-input" accept="image/*" class="hidden">
                     
-                    <textarea id="message-input" rows="1" placeholder="輸入訊息... (@ 標記)" class="flex-1 border-2 border-gray-700 bg-gray-950 rounded-md px-3 py-2.5 focus:bg-gray-900 focus:border-indigo-500 focus:outline-none font-bold text-white resize-none no-scrollbar text-xs md:text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]" style="min-height: 40px; max-height: 100px;"></textarea>
+                    <textarea id="message-input" rows="1" placeholder="輸入訊息... (@ 標記)" class="flex-1 border-3 border-gray-700 bg-gray-950 rounded p-2.5 focus:bg-gray-900 focus:border-indigo-500 focus:outline-none font-bold text-white resize-none no-scrollbar text-xs md:text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]" style="min-height: 40px; max-height: 100px;"></textarea>
                     
-                    <button id="btn-send" class="pixel-btn-indigo px-4 py-2.5 rounded-md flex-shrink-0 text-xs md:text-sm tracking-wider">SEND</button>
+                    <button id="btn-send" class="pixel-btn-indigo px-4 py-2.5 rounded flex-shrink-0 text-xs md:text-sm tracking-wider">SEND</button>
                 </div>
             </div>
             
@@ -276,17 +281,17 @@
         </button>
         
         <!-- 導覽面板 -->
-        <div class="absolute bottom-5 left-4 right-4 md:right-auto md:left-6 text-white text-[11px] md:text-xs pixel-box bg-gray-900/95 md:max-w-xs p-3.5 z-40 pointer-events-none">
-            <h3 class="font-black text-gray-200 mb-2 tracking-widest border-b-2 border-gray-700 pb-1.5 uppercase">Guide</h3>
+        <div class="absolute bottom-5 left-4 right-4 md:right-auto md:left-6 text-white text-[11px] md:text-xs pixel-box bg-gray-900 md:max-w-xs p-3.5 z-40 pointer-events-none">
+            <h3 class="font-black text-gray-200 mb-2 tracking-widest border-b-4 border-gray-700 pb-1.5 uppercase">Guide</h3>
             <div class="grid grid-cols-3 md:grid-cols-1 gap-2 font-bold text-gray-300">
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border border-black bg-[#fde047] mr-2 shadow-[0_0_6px_#fde047]"></span>開心 (點星球發文)</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border border-black bg-[#9ca3af] mr-2 shadow-[0_0_6px_#9ca3af]"></span>無聊</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border border-black bg-[#ef4444] mr-2 shadow-[0_0_6px_#ef4444]"></span>憤怒</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border border-black bg-[#f472b6] mr-2 shadow-[0_0_6px_#f472b6]"></span>心動</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border border-black bg-[#60a5fa] mr-2 shadow-[0_0_6px_#60a5fa]"></span>難過</div>
-                <div class="flex items-center"><span class="w-2.5 h-2.5 border border-black bg-[#ffffff] mr-2 shadow-[0_0_6px_#ffffff]"></span>其他</div>
+                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#fde047] mr-2"></span>開心 (點星球發文)</div>
+                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#9ca3af] mr-2"></span>無聊</div>
+                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#ef4444] mr-2"></span>憤怒</div>
+                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#f472b6] mr-2"></span>心動</div>
+                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#60a5fa] mr-2"></span>難過</div>
+                <div class="flex items-center"><span class="w-2.5 h-2.5 border-2 border-black bg-[#ffffff] mr-2"></span>其他</div>
             </div>
-            <div class="pt-2 mt-2 border-t-2 border-gray-700 text-orange-400 font-black text-[10px]">※ 橘光 = 宇宙迴響</div>
+            <div class="pt-2 mt-2 border-t-4 border-gray-700 text-orange-400 font-black text-[10px]">※ 橘光 = 宇宙迴響</div>
         </div>
 
         <div id="planets-container" class="relative w-full h-full"></div>
@@ -294,27 +299,27 @@
     </div>
 
     <!-- 宇宙：發文 Modal -->
-    <div id="universe-post-modal" class="hidden absolute inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div id="universe-post-modal" class="hidden absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="pixel-box p-6 w-full max-w-sm modal-enter bg-gray-900">
-            <div class="flex justify-between items-center mb-4 border-b-2 border-gray-700 pb-2.5">
+            <div class="flex justify-between items-center mb-4 border-b-4 border-gray-700 pb-2.5">
                 <h2 id="u-post-title" class="text-base font-black tracking-widest uppercase text-gray-100">留下心事</h2>
                 <button onclick="closeUniverseModals()" class="pixel-btn w-6 h-6 flex items-center justify-center font-black rounded text-xs">✕</button>
             </div>
             <div class="space-y-3">
-                <textarea id="u-post-text" rows="3" class="w-full bg-gray-950 border-2 border-gray-700 rounded-md p-3 text-white focus:outline-none focus:border-indigo-500 font-bold resize-none text-xs shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]" placeholder="今天發生了什麼事呢？"></textarea>
+                <textarea id="u-post-text" rows="3" class="w-full bg-gray-950 border-3 border-gray-700 rounded p-3 text-white focus:outline-none focus:border-indigo-500 font-bold resize-none text-xs shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]" placeholder="今天發生了什麼事呢？"></textarea>
                 <div>
-                    <input type="text" id="u-post-nickname" placeholder="你的暱稱 (選填)" class="w-full bg-gray-950 border-2 border-gray-700 rounded-md p-2.5 text-white text-xs focus:outline-none focus:border-indigo-500 font-bold shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+                    <input type="text" id="u-post-nickname" placeholder="你的暱稱 (選填)" class="w-full bg-gray-950 border-3 border-gray-700 rounded p-2.5 text-white text-xs focus:outline-none focus:border-indigo-500 font-bold shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
                 </div>
-                <button id="btn-u-submit" class="w-full pixel-btn bg-white text-gray-900 hover:bg-gray-100 py-2.5 rounded-md tracking-widest uppercase text-xs">化為星點發送</button>
+                <button id="btn-u-submit" class="w-full pixel-btn bg-white text-gray-900 hover:bg-gray-100 py-2.5 rounded tracking-widest uppercase text-xs">化為星點發送</button>
             </div>
         </div>
     </div>
 
     <!-- 宇宙：閱讀/回覆 Modal -->
-    <div id="universe-read-modal" class="hidden absolute inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div id="universe-read-modal" class="hidden absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="pixel-box w-full max-w-md flex flex-col h-[75vh] modal-enter bg-gray-900 overflow-hidden">
             
-            <div class="p-3.5 border-b-2 border-gray-700 flex justify-between items-center bg-gray-800 shrink-0">
+            <div class="p-3.5 border-b-4 border-gray-700 flex justify-between items-center bg-gray-800 shrink-0">
                 <div class="flex items-center space-x-2.5">
                     <img id="u-read-avatar" class="w-9 h-9 pixel-avatar object-cover bg-black shrink-0">
                     <div>
@@ -329,17 +334,17 @@
                 <p id="u-read-text" class="text-xs md:text-sm leading-relaxed text-gray-200 font-bold"></p>
                 
                 <div class="flex items-center text-[10px] font-black text-gray-500 pt-1 tracking-widest uppercase">
-                    <div class="flex-1 border-t-2 border-gray-800"></div>
+                    <div class="flex-1 border-t-4 border-gray-800"></div>
                     <span class="px-2 text-gray-400">REPLIES</span>
-                    <div class="flex-1 border-t-2 border-gray-800"></div>
+                    <div class="flex-1 border-t-4 border-gray-800"></div>
                 </div>
 
                 <div id="u-replies-list" class="space-y-2.5"></div>
             </div>
 
-            <div class="p-3 border-t-2 border-gray-700 bg-gray-800 shrink-0 flex space-x-2 items-end">
-                <textarea id="u-reply-input" rows="1" placeholder="給予回應..." class="flex-1 bg-gray-950 border-2 border-gray-700 rounded-md px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-400 font-bold resize-none no-scrollbar shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]" style="min-height: 38px; max-height: 80px;"></textarea>
-                <button id="btn-u-reply" class="pixel-btn bg-orange-500 hover:bg-orange-600 px-3.5 py-2 rounded-md font-black text-xs tracking-wider">回覆</button>
+            <div class="p-3 border-t-4 border-gray-700 bg-gray-800 shrink-0 flex space-x-2 items-end">
+                <textarea id="u-reply-input" rows="1" placeholder="給予回應..." class="flex-1 bg-gray-950 border-3 border-gray-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-400 font-bold resize-none no-scrollbar shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]" style="min-height: 38px; max-height: 80px;"></textarea>
+                <button id="btn-u-reply" class="pixel-btn bg-orange-500 hover:bg-orange-600 px-3.5 py-2 rounded font-black text-xs tracking-wider">回覆</button>
             </div>
         </div>
     </div>
@@ -492,7 +497,7 @@
                 for (let uid in members) {
                     const mem = members[uid];
                     list.innerHTML += `
-                        <div class="flex items-center justify-between bg-gray-950 border-2 border-gray-700 p-2 rounded-md shadow-[2px_2px_0_#000]">
+                        <div class="flex items-center justify-between bg-gray-950 border-3 border-gray-700 p-2 rounded shadow-[2px_2px_0_#000]">
                             <div class="flex items-center space-x-2">
                                 <img src="${mem.avatar}" class="w-7 h-7 rounded pixel-avatar object-cover shrink-0">
                                 <div>
@@ -511,7 +516,7 @@
 
         function renderMessage(msgId, msg) {
             const isMe = msg.sender === myUserId;
-            let formattedText = msg.text ? msg.text.replace(/@(\S+)/g, '<span class="text-indigo-900 font-black bg-indigo-200 px-1 border border-indigo-700 rounded-sm">@$1</span>') : '';
+            let formattedText = msg.text ? msg.text.replace(/@(\S+)/g, '<span class="text-indigo-900 font-black bg-indigo-200 px-1 border-2 border-indigo-700 rounded-sm">@$1</span>') : '';
             if (formattedText) formattedText = formattedText.replace(/\n/g, '<br>');
 
             const msgDiv = document.createElement('div');
@@ -523,12 +528,12 @@
             html += `<div class="max-w-[78%] md:max-w-[70%] relative flex flex-col ${isMe ? 'items-end' : 'items-start'}">`;
             if (!isMe) html += `<p class="text-[10px] font-black text-gray-400 mb-1 ml-1 tracking-wider">${msg.name}</p>`;
             
-            if (msg.replyTo) html += `<div class="bg-gray-800 text-xs p-2 rounded-t-md border-2 border-b-0 border-gray-700 mb-[-2px] pb-2 text-gray-300 truncate max-w-full font-bold shadow-[2px_0_0_#000]"><span class="font-black text-indigo-400">REPLY ${msg.replyTo.name}:</span>${msg.replyTo.text || '[圖片]'}</div>`;
+            if (msg.replyTo) html += `<div class="bg-gray-800 text-xs p-2 rounded-t border-3 border-b-0 border-gray-700 mb-[-2px] pb-2 text-gray-300 truncate max-w-full font-bold shadow-[2px_0_0_#000]"><span class="font-black text-indigo-400">REPLY ${msg.replyTo.name}:</span>${msg.replyTo.text || '[圖片]'}</div>`;
 
             const bubbleClass = isMe ? 'pixel-bubble-me rounded-xl rounded-br-sm' : 'pixel-bubble-other rounded-xl rounded-bl-sm';
             html += `<div class="px-3.5 py-2 break-words relative z-10 ${bubbleClass}">`;
             
-            if (msg.image) html += `<img src="${msg.image}" class="max-w-full rounded mb-1 cursor-pointer hover:opacity-90 transition-opacity border-2 border-gray-800 pixel-avatar" onclick="window.open('${msg.image}')">`;
+            if (msg.image) html += `<img src="${msg.image}" class="max-w-full rounded mb-1 cursor-pointer hover:opacity-90 transition-opacity border-3 border-gray-800 pixel-avatar" onclick="window.open('${msg.image}')">`;
             if (formattedText) html += `<span class="leading-relaxed font-bold text-xs md:text-sm">${formattedText}</span>`;
             
             html += `</div><div id="reactions-${msgId}" class="flex flex-wrap gap-1 mt-1 z-20 relative"></div></div>`;
@@ -551,7 +556,7 @@
             if (!msg.reactions) return;
             for (const [emoji, users] of Object.entries(msg.reactions)) {
                 const count = Object.keys(users).length;
-                if (count > 0) container.innerHTML += `<span class="text-[11px] bg-gray-900 border-2 border-gray-700 px-2 py-0.5 rounded-sm shadow-[1px_1px_0_#000] cursor-pointer hover:bg-gray-800 transition-all flex items-center font-black text-gray-200" onclick="window.addReaction('${emoji}', '${msgId}')">${emoji} <span class="ml-1">${count}</span></span>`;
+                if (count > 0) container.innerHTML += `<span class="text-[11px] bg-gray-900 border-3 border-gray-700 px-2 py-0.5 rounded-sm shadow-[1px_1px_0_#000] cursor-pointer hover:bg-gray-800 transition-all flex items-center font-black text-gray-200" onclick="window.addReaction('${emoji}', '${msgId}')">${emoji} <span class="ml-1">${count}</span></span>`;
             }
         }
 
@@ -644,12 +649,12 @@
         // ====================================================
         
         const PLANETS = {
-            'happy': { name: '開心', img: './happy.png',    color: '#fde047', glow: 'rgba(253,224,71,0.6)', top: 22, left: 30 },
-            'bored': { name: '無聊', img: './bored.png',    color: '#9ca3af', glow: 'rgba(156,163,175,0.6)', top: 22, left: 70 },
-            'angry': { name: '憤怒', img: './angry.png',    color: '#ef4444', glow: 'rgba(239,68,68,0.6)', top: 50, left: 20 },
-            'crush': { name: '心動', img: './touching.png', color: '#f472b6', glow: 'rgba(244,114,182,0.6)', top: 50, left: 80 },
-            'sad':   { name: '難過', img: './sad.png',      color: '#60a5fa', glow: 'rgba(96,165,250,0.6)', top: 78, left: 30 },
-            'other': { name: '其他', img: './other.png',    color: '#ffffff', glow: 'rgba(255,255,255,0.6)', top: 78, left: 70 }
+            'happy': { name: '開心', img: './happy.png',    color: '#fde047', top: 22, left: 30 },
+            'bored': { name: '無聊', img: './bored.png',    color: '#9ca3af', top: 22, left: 70 },
+            'angry': { name: '憤怒', img: './angry.png',    color: '#ef4444', top: 50, left: 20 },
+            'crush': { name: '心動', img: './touching.png', color: '#f472b6', top: 50, left: 80 },
+            'sad':   { name: '難過', img: './sad.png',      color: '#60a5fa', top: 78, left: 30 },
+            'other': { name: '其他', img: './other.png',    color: '#ffffff', top: 78, left: 70 }
         };
 
         let isUniverseInit = false;
@@ -677,13 +682,15 @@
                 planetDiv.onclick = () => openUniversePostModal(key);
                 
                 planetDiv.innerHTML = `
-                    <div class="relative group transform transition-transform duration-200 hover:scale-110">
-                        <img src="${p.img}" alt="${p.name}" class="w-20 h-20 md:w-32 md:h-32 object-contain" style="image-rendering: pixelated; filter: drop-shadow(0 0 12px ${p.glow});">
-                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="relative group transform transition-transform duration-200 hover:scale-110 flex items-center justify-center">
+                        <!-- 獨立光暈層（完美圓形發光，徹底解決方形結界問題） -->
+                        <div class="absolute w-16 h-16 rounded-full blur-md opacity-60 pointer-events-none" style="background-color: ${p.color};"></div>
+                        <img src="${p.img}" alt="${p.name}" class="relative w-20 h-20 md:w-32 md:h-32 object-contain z-10" style="image-rendering: pixelated;">
+                        <div class="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded">
                             <span class="text-white text-4xl font-black drop-shadow-[2px_2px_0_#000]">+</span>
                         </div>
                     </div>
-                    <span class="mt-1.5 text-white text-[11px] font-black tracking-widest px-2 py-0.5 border-2 border-gray-800 bg-gray-900/90 shadow-[2px_2px_0_#000]">${p.name}</span>
+                    <span class="mt-1.5 text-white text-[11px] font-black tracking-widest px-2 py-0.5 border-2 border-gray-800 bg-gray-900/95 shadow-[2px_2px_0_#000] z-10">${p.name}</span>
                 `;
                 container.appendChild(planetDiv);
             }
@@ -722,8 +729,8 @@
             starDiv.style.animationDelay = `${Math.random() * 2.5}s`;
             
             starDiv.innerHTML = `
-                <div class="absolute w-4 h-4 rounded-sm opacity-40 blur-[2px]" style="background-color: ${p.color};"></div>
-                <div class="relative w-3 h-3 rounded-sm border border-black/50" style="background-color: ${p.color}; box-shadow: 0 0 8px ${p.color}, 0 0 14px #fff;"></div>
+                <div class="absolute w-4 h-4 rounded-full opacity-50 blur-[2px]" style="background-color: ${p.color};"></div>
+                <div class="relative w-3 h-3 rounded-sm border-2 border-black/80" style="background-color: ${p.color}; box-shadow: 0 0 8px ${p.color}, 0 0 14px #fff;"></div>
             `;
             
             starDiv.onclick = () => openUniverseReadModal(postId, data);
@@ -824,8 +831,8 @@
             repliesArray.sort((a, b) => a.timestamp - b.timestamp).forEach((reply, index) => {
                 const delay = index * 0.05;
                 list.innerHTML += `
-                    <div class="msg-enter flex space-x-2.5 bg-gray-950 p-3 border-2 border-gray-700 rounded-md shadow-[2px_2px_0_#000]" style="animation-delay: ${delay}s">
-                        <img src="${reply.avatar}" class="w-8 h-8 rounded pixel-avatar border border-orange-500 object-cover bg-black shrink-0">
+                    <div class="msg-enter flex space-x-2.5 bg-gray-950 p-3 border-3 border-gray-700 rounded shadow-[2px_2px_0_#000]" style="animation-delay: ${delay}s">
+                        <img src="${reply.avatar}" class="w-8 h-8 rounded pixel-avatar border-2 border-orange-500 object-cover bg-black shrink-0">
                         <div class="flex-1">
                             <div class="flex items-center space-x-2 mb-1">
                                 <span class="font-black text-xs text-orange-400 tracking-wide">${reply.name}</span>
