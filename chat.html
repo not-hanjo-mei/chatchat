@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臨時聊天室</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 隱藏捲軸但保持可捲動 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex items-center justify-center font-sans text-gray-800">
+
+    <!-- 登入/建立房間畫面 -->
+    <div id="setup-screen" class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md mx-4">
+        <h1 class="text-2xl font-bold mb-6 text-center text-indigo-600">加入或建立聊天室</h1>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-1">房間號碼</label>
+                <input type="text" id="room-id" placeholder="輸入房間號碼" class="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium mb-1">暱稱 (最多10字)</label>
+                <input type="text" id="nickname" maxlength="10" placeholder="你的暱稱" class="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium mb-1">自訂頭像 (可選)</label>
+                <input type="file" id="avatar-input" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 rounded-lg border p-1">
+                <img id="avatar-preview" class="mt-2 w-16 h-16 rounded-full object-cover hidden border" />
+            </div>
+
+            <div class="flex space-x-3 pt-4">
+                <button id="btn-create" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition">建立房間</button>
+                <button id="btn-join" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition">加入房間</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 聊天室畫面 -->
+    <div id="chat-screen" class="hidden w-full h-full max-w-5xl bg-white shadow-xl flex flex-col md:flex-row md:h-[90vh] md:rounded-2xl overflow-hidden">
+        
+        <!-- 側邊欄 (成員列表) -->
+        <div class="w-full md:w-64 bg-gray-50 border-r flex flex-col">
+            <div class="p-4 border-b bg-indigo-50 flex justify-between items-center">
+                <h2 class="font-bold text-indigo-800">房間: <span id="display-room-id"></span></h2>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar" id="members-list">
+                <!-- 成員名單會動態生成於此 -->
+            </div>
+            <div class="p-4 border-t space-y-2">
+                <button id="btn-leave" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition">退出房間</button>
+                <button id="btn-disband" class="hidden w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition">解散房間</button>
+            </div>
+        </div>
+
+        <!-- 聊天主區域 -->
+        <div class="flex-1 flex flex-col h-[60vh] md:h-full">
+            <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-gray-100" id="chat-messages">
+                <!-- 聊天訊息 -->
+            </div>
+            <div class="p-4 bg-white border-t flex space-x-2">
+                <input type="text" id="message-input" placeholder="輸入訊息..." class="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button id="btn-send" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition">發送</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // 匯入 Firebase 核心模組與資料庫模組 (同步更新為 12.19.0 版)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
+        import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect, remove, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+        // 你的專屬 Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyAR8ij9OjrePtf6heoMghCcp7JVu_L5z6U",
+            authDomain: "chat-f46da.firebaseapp.com",
+            databaseURL: "https://chat-f46da-default-rtdb.firebaseio.com",
+            projectId: "chat-f46da",
+            storageBucket: "chat-f46da.firebasestorage.app",
+            messagingSenderId: "148711107012",
+            appId: "1:148711107012:web:676fdcea4bcb62f1225c91",
+            measurementId: "G-FSJBCZY4C6"
+        };
+
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getDatabase(app);
+
+        // 應用程式狀態
+        let myUserId = 'user_' + Math.random().toString(36).substr(2, 9);
+        let myNickname = '';
+        let myAvatarBase64 = 'https://api.dicebear.com/7.x/bottts/svg?seed=' + myUserId; // 預設頭像
+        let currentRoomId = null;
+        let isHost = false;
+
+        // DOM 元素
+        const setupScreen = document.getElementById('setup-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const avatarInput = document.getElementById('avatar-input');
+        const avatarPreview = document.getElementById('avatar-preview');
+        const membersList = document.getElementById('members-list');
+        const chatMessages = document.getElementById('chat-messages');
+        const btnDisband = document.getElementById('btn-disband');
+        const messageInput = document.getElementById('message-input');
+
+        // 1. 處理頭像上傳 (轉為 Base64)
+        avatarInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    myAvatarBase64 = e.target.result;
+                    avatarPreview.src = myAvatarBase64;
+                    avatarPreview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 2. 建立房間
+        document.getElementById('btn-create').addEventListener('click', async () => {
+            const roomId = document.getElementById('room-id').value.trim();
+            myNickname = document.getElementById('nickname').value.trim() || '匿名用戶';
+            if (!roomId) return alert("請輸入房間號碼");
+
+            const roomRef = ref(db, `rooms/${roomId}`);
+            const snapshot = await get(roomRef);
+            
+            if (snapshot.exists()) {
+                return alert("該房間已存在，請使用加入房間功能或更換房間號碼。");
+            }
+
+            joinRoomProcess(roomId, true);
+        });
+
+        // 3. 加入房間
+        document.getElementById('btn-join').addEventListener('click', async () => {
+            const roomId = document.getElementById('room-id').value.trim();
+            myNickname = document.getElementById('nickname').value.trim() || '匿名用戶';
+            if (!roomId) return alert("請輸入房間號碼");
+
+            const roomRef = ref(db, `rooms/${roomId}`);
+            const snapshot = await get(roomRef);
+            
+            if (!snapshot.exists()) {
+                return alert("房間不存在，請確認號碼或建立新房間。");
+            }
+
+            joinRoomProcess(roomId, false);
+        });
+
+        // 核心：進入房間邏輯
+        async function joinRoomProcess(roomId, createAsHost) {
+            currentRoomId = roomId;
+            const joinTime = Date.now();
+
+            if (createAsHost) {
+                await set(ref(db, `rooms/${roomId}/host`), myUserId);
+            }
+
+            // 將自己加入成員名單
+            const myMemberRef = ref(db, `rooms/${roomId}/members/${myUserId}`);
+            await set(myMemberRef, {
+                name: myNickname,
+                avatar: myAvatarBase64,
+                joinedAt: joinTime
+            });
+
+            // 設定斷線時自動移除自己 (網頁關閉時觸發)
+            onDisconnect(myMemberRef).remove();
+
+            // 切換畫面
+            setupScreen.classList.add('hidden');
+            chatScreen.classList.remove('hidden');
+            document.getElementById('display-room-id').innerText = roomId;
+
+            setupListeners();
+        }
+
+        // 4. 設定各項監聽器
+        function setupListeners() {
+            const roomRef = ref(db, `rooms/${currentRoomId}`);
+            
+            // 監聽房間整體狀態 (處理被解散)
+            onValue(roomRef, (snapshot) => {
+                if (!snapshot.exists()) {
+                    alert("房間已被房主解散！");
+                    window.location.reload();
+                }
+            });
+
+            // 監聽成員變動與房主轉移
+            onValue(ref(db, `rooms/${currentRoomId}/members`), async (snapshot) => {
+                const members = snapshot.val();
+                if (!members) return; // 房間空了會被刪除
+                
+                // 檢查自己是否被踢出
+                if (!members[myUserId]) {
+                    alert("你已離開或被踢出該房間。");
+                    window.location.reload();
+                    return;
+                }
+
+                // 檢查房主狀態
+                const hostSnap = await get(ref(db, `rooms/${currentRoomId}/host`));
+                const currentHost = hostSnap.val();
+
+                // 如果當前房主不在成員名單中 (房主斷線或退出)
+                if (!members[currentHost]) {
+                    // 尋找加入時間最早的成員成為新房主
+                    let oldestUser = null;
+                    let oldestTime = Infinity;
+                    for (let uid in members) {
+                        if (members[uid].joinedAt < oldestTime) {
+                            oldestTime = members[uid].joinedAt;
+                            oldestUser = uid;
+                        }
+                    }
+                    
+                    if (oldestUser === myUserId) {
+                        await set(ref(db, `rooms/${currentRoomId}/host`), myUserId);
+                        isHost = true;
+                    }
+                } else {
+                    isHost = (currentHost === myUserId);
+                }
+
+                btnDisband.classList.toggle('hidden', !isHost);
+                renderMembers(members, currentHost || myUserId);
+            });
+
+            // 監聽聊天訊息
+            onChildAdded(ref(db, `rooms/${currentRoomId}/messages`), (snapshot) => {
+                const msg = snapshot.val();
+                const isMe = msg.sender === myUserId;
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `flex items-end space-x-2 ${isMe ? 'justify-end' : ''}`;
+                
+                msgDiv.innerHTML = `
+                    ${!isMe ? `<img src="${msg.avatar}" class="w-8 h-8 rounded-full border object-cover">` : ''}
+                    <div class="max-w-[70%]">
+                        ${!isMe ? `<p class="text-xs text-gray-500 mb-1 ml-1">${msg.name}</p>` : ''}
+                        <div class="px-4 py-2 rounded-2xl ${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none shadow-sm break-words'}">
+                            ${msg.text}
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(msgDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+        }
+
+        // 渲染側邊欄成員列表
+        function renderMembers(members, currentHost) {
+            membersList.innerHTML = '';
+            for (let uid in members) {
+                const member = members[uid];
+                const isMe = uid === myUserId;
+                const isThisMemberHost = uid === currentHost;
+
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between bg-white p-2 rounded-lg border";
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <img src="${member.avatar}" class="w-8 h-8 rounded-full border object-cover">
+                        <div>
+                            <p class="text-sm font-medium">${member.name} ${isMe ? '(你)' : ''}</p>
+                            ${isThisMemberHost ? '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded">房主</span>' : ''}
+                        </div>
+                    </div>
+                    ${(isHost && !isMe) ? `<button class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition" onclick="window.kickMember('${uid}')">踢出</button>` : ''}
+                `;
+                membersList.appendChild(div);
+            }
+        }
+
+        // 5. 訊息發送
+        document.getElementById('btn-send').addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !currentRoomId) return;
+
+            push(ref(db, `rooms/${currentRoomId}/messages`), {
+                sender: myUserId,
+                name: myNickname,
+                avatar: myAvatarBase64,
+                text: text,
+                timestamp: Date.now()
+            });
+            messageInput.value = '';
+        }
+
+        // 6. 權限操作 (踢人、解散、退出)
+        
+        // 踢出成員 (掛載到 window 供 onclick 呼叫)
+        window.kickMember = async (uid) => {
+            if (isHost && confirm("確定要踢出這位成員嗎？")) {
+                await remove(ref(db, `rooms/${currentRoomId}/members/${uid}`));
+            }
+        };
+
+        // 解散房間
+        btnDisband.addEventListener('click', async () => {
+            if (confirm("解散房間將清除所有聊天紀錄，確定執行？")) {
+                await remove(ref(db, `rooms/${currentRoomId}`));
+            }
+        });
+
+        // 退出房間
+        document.getElementById('btn-leave').addEventListener('click', async () => {
+            await remove(ref(db, `rooms/${currentRoomId}/members/${myUserId}`));
+            window.location.reload();
+        });
+
+    </script>
+</body>
+</html>
