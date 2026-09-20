@@ -15,15 +15,14 @@
         .watermark { pointer-events: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: none; background-repeat: repeat; }
         .secure-mode .watermark { display: block; }
 
-        /* 心情宇宙專屬特效 */
+        /* 心情宇宙專屬特效：套用你的手繪背景 */
         .universe-bg {
-            background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%);
-            background-image: radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
-                              radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
-                              radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
-                              radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0));
-            background-repeat: repeat;
-            background-size: 200px 200px;
+            background-image: url('./universe.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-color: #0f0f1a; /* 圖片載入前的底色 */
         }
         
         /* 繁星閃爍動畫 */
@@ -135,19 +134,24 @@
 
     <!-- ==================== 4. 心情宇宙畫面 ==================== -->
     <div id="universe-screen" class="hidden absolute inset-0 universe-bg z-30">
-        <button onclick="switchScreen('landing-screen')" class="absolute top-6 left-6 text-white/50 hover:text-white z-50 px-4 py-2 border border-white/30 rounded-full backdrop-blur">← 離開宇宙</button>
+        
+        <!-- 優化後的返回按鈕 -->
+        <button onclick="switchScreen('landing-screen')" class="absolute top-6 left-6 flex items-center space-x-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/25 px-5 py-2.5 border border-white/20 rounded-full backdrop-blur-md shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] transition-all duration-300 z-50 font-medium tracking-wider">
+            <span class="text-lg leading-none">←</span>
+            <span>離開宇宙</span>
+        </button>
         
         <!-- 說明面板 -->
-        <div class="absolute bottom-6 left-6 text-white/70 text-xs md:text-sm bg-black/40 p-4 rounded-xl backdrop-blur z-40 pointer-events-none">
+        <div class="absolute bottom-6 left-6 text-white/70 text-xs md:text-sm bg-black/40 p-4 rounded-xl backdrop-blur z-40 pointer-events-none border border-white/10">
             <h3 class="font-bold text-white mb-2">宇宙導覽</h3>
             <ul class="space-y-1">
-                <li><span class="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-2"></span>開心 (黃色) - 點擊星球分享 +</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-gray-400 mr-2"></span>無聊 (灰色)</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span>憤怒 (紅色)</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-pink-400 mr-2"></span>心動 (粉色)</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-blue-400 mr-2"></span>難過 (藍色)</li>
-                <li><span class="inline-block w-3 h-3 rounded-full bg-white mr-2"></span>其他 (白色)</li>
-                <li class="pt-2 text-orange-400">※ 橘色微光代表其他旅人的回覆</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-2 shadow-[0_0_8px_rgba(250,204,21,0.8)]"></span>開心 - 點擊星球分享 +</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-gray-400 mr-2 shadow-[0_0_8px_rgba(156,163,175,0.8)]"></span>無聊</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>憤怒</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-pink-400 mr-2 shadow-[0_0_8px_rgba(244,114,182,0.8)]"></span>心動</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-blue-400 mr-2 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></span>難過</li>
+                <li><span class="inline-block w-3 h-3 rounded-full bg-white mr-2 shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>其他</li>
+                <li class="pt-2 text-orange-400 font-medium">※ 橘色微光代表其他旅人的回覆</li>
             </ul>
         </div>
 
@@ -460,7 +464,7 @@
         //                 PART B: 心情宇宙邏輯
         // ====================================================
         
-        // 🔥 套用你手繪的星球圖片檔名，並保留 color 以供星點使用
+        // 套用你手繪的星球圖片檔名，並保留 color 以供星點使用
         const PLANETS = {
             'happy': { name: '開心', img: './happy.png',    color: 'bg-yellow-400', top: 20, left: 30, glow: 'rgba(253,224,71,0.4)' },
             'bored': { name: '無聊', img: './bored.png',    color: 'bg-gray-400',   top: 20, left: 70, glow: 'rgba(156,163,175,0.4)' },
@@ -471,8 +475,8 @@
         };
 
         let isUniverseInit = false;
-        let currentTargetEmotion = null; // 發文時選擇的星球
-        let currentReadingPostId = null; // 正在閱讀的星點 ID
+        let currentTargetEmotion = null; 
+        let currentReadingPostId = null; 
 
         window.enterUniverse = () => {
             switchScreen('universe-screen');
@@ -510,17 +514,14 @@
         function listenToUniverse() {
             const postsRef = ref(db, 'universe/posts');
             onChildAdded(postsRef, (snap) => renderStar(snap.key, snap.val()));
-            // 監聽回覆更新
             onChildChanged(postsRef, (snap) => updateStarReplies(snap.key, snap.val()));
         }
 
-        // 渲染主星點
         function renderStar(postId, data) {
             const container = document.getElementById('stars-container');
             const p = PLANETS[data.emotion];
             if (!p) return;
 
-            // 計算絕對位置 (儲存的是相對於星球的隨機角度與距離)
             const starDiv = document.createElement('div');
             starDiv.id = `ustar-${postId}`;
             starDiv.className = `absolute w-3 h-3 rounded-full ${p.color} cursor-pointer star-glow hover:scale-150 transition z-20 shadow-[0_0_10px_currentColor]`;
@@ -529,7 +530,6 @@
             
             starDiv.onclick = () => openUniverseReadModal(postId, data);
             
-            // 回覆容器 (為了讓小橘點環繞)
             const replyContainer = document.createElement('div');
             replyContainer.id = `ureply-${postId}`;
             replyContainer.className = 'reply-orbit';
@@ -539,7 +539,6 @@
             updateStarReplies(postId, data);
         }
 
-        // 渲染小橘點 (回覆)
         function updateStarReplies(postId, data) {
             const container = document.getElementById(`ureply-${postId}`);
             if (!container) return;
@@ -548,9 +547,8 @@
 
             const replies = Object.values(data.replies);
             const count = replies.length;
-            const radius = 15; // 像素
+            const radius = 15; 
 
-            // 將小橘點均勻分佈在主星點周圍
             replies.forEach((reply, index) => {
                 const angle = (index / count) * Math.PI * 2;
                 const x = Math.cos(angle) * radius;
@@ -558,18 +556,16 @@
 
                 const dot = document.createElement('div');
                 dot.className = 'absolute w-1.5 h-1.5 bg-orange-400 rounded-full shadow-[0_0_5px_currentColor]';
-                dot.style.top = `calc(50% + ${y}px - 3px)`; // -3px 置中校正
+                dot.style.top = `calc(50% + ${y}px - 3px)`; 
                 dot.style.left = `calc(50% + ${x}px - 3px)`;
                 container.appendChild(dot);
             });
 
-            // 如果目前閱讀視窗正好打開這篇文，一併更新列表
             if (currentReadingPostId === postId) {
                 renderRepliesList(replies);
             }
         }
 
-        // --- 發布心事 ---
         window.openUniversePostModal = (emotion) => {
             currentTargetEmotion = emotion;
             document.getElementById('u-post-title').innerText = `為「${PLANETS[emotion].name}」留下一顆星...`;
@@ -583,9 +579,8 @@
             const name = document.getElementById('u-post-nickname').value.trim() || '匿名旅人';
             if (!text) return alert("請輸入心事內容");
 
-            myNickname = name; // 順便更新全域暱稱
+            myNickname = name;
 
-            // 產生隨機擴散座標 (距星球中心約 8% ~ 20% 畫面距離)
             const angle = Math.random() * Math.PI * 2;
             const distance = 8 + Math.random() * 12; 
             const offsetX = Math.cos(angle) * distance;
@@ -604,11 +599,9 @@
             closeUniverseModals();
         });
 
-        // --- 閱讀與回覆心事 ---
         window.openUniverseReadModal = async (postId, data) => {
             currentReadingPostId = postId;
             
-            // 填入主文資料
             document.getElementById('u-read-avatar').src = data.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=anonymous';
             document.getElementById('u-read-name').innerText = data.name;
             document.getElementById('u-read-time').innerText = new Date(data.timestamp).toLocaleString();
@@ -616,9 +609,7 @@
             
             document.getElementById('u-reply-input').value = '';
             
-            // 讀取回覆
             renderRepliesList(data.replies ? Object.values(data.replies) : []);
-
             document.getElementById('universe-read-modal').classList.remove('hidden');
         };
 
@@ -630,7 +621,6 @@
                 return;
             }
 
-            // 依時間排序
             repliesArray.sort((a, b) => a.timestamp - b.timestamp).forEach(reply => {
                 list.innerHTML += `
                     <div class="flex space-x-3 bg-gray-900/50 p-3 rounded-xl border border-gray-700/50">
@@ -645,7 +635,6 @@
                     </div>
                 `;
             });
-            // 捲動到底部
             list.parentElement.scrollTop = list.parentElement.scrollHeight;
         }
 
