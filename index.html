@@ -508,10 +508,9 @@
 
         function listenToUniverse() {
             const postsRef = ref(db, 'universe/posts');
-            // 🔥 強制監聽新增與變更，確保畫面上的所有光點（包含資料庫中已存在的舊光點）全部重新渲染為新樣式
             onValue(postsRef, (snapshot) => {
                 const container = document.getElementById('stars-container');
-                container.innerHTML = ''; // 清空舊渲染避免重複
+                container.innerHTML = '';
                 const posts = snapshot.val();
                 if (posts) {
                     for (const [postId, data] of Object.entries(posts)) {
@@ -521,7 +520,6 @@
             });
         }
 
-        // 渲染美化過的主星點 (強制套用對應星球的專屬色彩與精緻星芒)
         function renderStar(postId, data) {
             const container = document.getElementById('stars-container');
             const p = PLANETS[data.emotion];
@@ -533,7 +531,6 @@
             starDiv.style.top = `calc(${p.top}% + ${data.offsetY}vh)`;
             starDiv.style.left = `calc(${p.left}% + ${data.offsetX}vw)`;
             
-            // 🔥 直接使用星球的專屬 color 屬性，確保已有的光點與新光點顏色完全一致
             starDiv.innerHTML = `
                 <div class="absolute w-5 h-5 rounded-full opacity-35 blur-[2px]" style="background-color: ${p.color};"></div>
                 <div class="relative w-3.5 h-3.5 rounded-full shadow-md" style="background-color: ${p.color}; box-shadow: 0 0 12px ${p.color}, 0 0 20px #fff;"></div>
@@ -550,7 +547,6 @@
             updateStarReplies(postId, data);
         }
 
-        // 渲染小橘點 (回覆)
         function updateStarReplies(postId, data) {
             const container = document.getElementById(`ureply-${postId}`);
             if (!container) return;
@@ -655,7 +651,8 @@
 
         async function submitUniverseReply() {
             if (!currentReadingPostId) return;
-            const text = document.getElementById('u-reply-input'].value.trim();
+            // 💡 已修正此處原本的括號語法錯誤
+            const text = document.getElementById('u-reply-input').value.trim();
             if (!text) return;
 
             const myName = document.getElementById('nickname').value || myNickname || '匿名旅人';
